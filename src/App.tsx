@@ -12,7 +12,9 @@ function App() {
 
   return (
     <div className="App">
-      <GameBoard gameState={gameState} />
+      <header className="App-header">
+        <GameBoard gameState={gameState} />
+      </header>
     </div>
   );
 }
