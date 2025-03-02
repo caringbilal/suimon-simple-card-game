@@ -1,15 +1,17 @@
 import React from 'react';
 import { useDrag } from 'react-dnd';
 import { CardType } from '../types/game';
+import '../styles/card.css';
 
 interface CardProps {
   card: CardType;
   onClick?: () => void;
+  isAttacking?: boolean;
+  onAnimationEnd?: () => void;
 }
 
-const Card: React.FC<CardProps> = ({ card, onClick }) => {
-  const [{ isDragging }, dragRef] = useDrag<CardType, unknown, { isDragging: boolean }>({
-    type: 'CARD',
+const Card: React.FC<CardProps> = ({ card, onClick, isAttacking, onAnimationEnd }) => {
+  const [{ isDragging }, dragRef] = useDrag<CardType, unknown, { isDragging: boolean }>({    type: 'CARD',
     item: card,
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
@@ -19,9 +21,10 @@ const Card: React.FC<CardProps> = ({ card, onClick }) => {
   return (
     <div 
       ref={dragRef as unknown as React.LegacyRef<HTMLDivElement>}
-      className={`card ${isDragging ? 'card-dragging' : ''}`}
+      className={`card ${isDragging ? 'card-dragging' : ''} ${isAttacking ? 'attacking' : ''}`}
       style={{ opacity: isDragging ? 0.5 : 1 }}
       onClick={onClick}
+      onAnimationEnd={onAnimationEnd}
     >
       <div className="card-title">{card.name}</div>
       <div className="card-image">

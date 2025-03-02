@@ -21,6 +21,10 @@ export interface GameState {
   players: {
     [key: string]: Player;
   };
+  battlefield: {
+    player: CardType[];
+    opponent: CardType[];
+  };
   currentTurn: 'player' | 'opponent';
   gameStatus: 'waiting' | 'playing' | 'finished';
 }
