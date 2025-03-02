@@ -7,15 +7,41 @@ interface GameBoardProps {
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({ gameState }) => {
-  // Test card data
-  const testCard = {
-    id: '1',
-    name: 'Test Monster',
-    attack: 100,
-    defense: 100,
-    hp: 100,
-    imageUrl: ''
-  };
+  // Test cards data
+  const testCards = [
+    {
+      id: '1',
+      name: 'Fire Dragon',
+      attack: 150,
+      defense: 100,
+      hp: 200,
+      imageUrl: ''
+    },
+    {
+      id: '2',
+      name: 'Ice Golem',
+      attack: 120,
+      defense: 180,
+      hp: 250,
+      imageUrl: ''
+    },
+    {
+      id: '3',
+      name: 'Thunder Bird',
+      attack: 180,
+      defense: 80,
+      hp: 150,
+      imageUrl: ''
+    },
+    {
+      id: '4',
+      name: 'Earth Giant',
+      attack: 200,
+      defense: 150,
+      hp: 300,
+      imageUrl: ''
+    }
+  ];
 
   return (
     <div className="game-board">
@@ -24,7 +50,13 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState }) => {
         Game Status: {gameState.gameStatus}
       </div>
       <div className="player-hand">
-        <Card card={testCard} onClick={() => console.log('Card clicked')} />
+        {testCards.map(card => (
+          <Card 
+            key={card.id} 
+            card={card} 
+            onClick={() => console.log(`Card ${card.name} clicked`)} 
+          />
+        ))}
       </div>
     </div>
   );
