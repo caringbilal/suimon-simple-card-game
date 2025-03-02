@@ -51,20 +51,23 @@
 }
 
 .card {
-  width: 150px;
-  height: 200px;
-  border: 2px solid #333;
-  border-radius: 10px;
-  margin: 10px;
-  padding: 10px;
-  background-color: #fff;
+  width: 200px;
+  height: 280px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(5px);
+  border-radius: 15px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  padding: 15px;
+  transition: all 0.3s ease;
   cursor: pointer;
-  transition: transform 0.2s;
+  position: relative;
+  overflow: hidden;
 }
 
 .card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  transform: translateY(-10px) scale(1.02);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.6);
 }
 
 .card-content {
@@ -74,6 +77,46 @@
   justify-content: space-between;
 }
 
+.card-title {
+  font-size: 1.4rem;
+  margin: 0;
+  padding: 10px;
+  color: #ffffff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  font-weight: bold;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+}
+
+.card-stats {
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  padding: 15px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  text-align: center;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: bold;
+}
+
+.stat-value {
+  font-size: 1.2rem;
+  color: #ffffff;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
 .card-stats {
   display: flex;
   justify-content: space-around;
