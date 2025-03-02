@@ -11,6 +11,13 @@ const Card: React.FC<CardProps> = ({ card, onClick }) => {
     <div className="card" onClick={onClick}>
       <div className="card-content">
         <h3 className="card-title">{card.name}</h3>
+        <div className="card-image">
+          {card.imageUrl ? (
+            <img src={card.imageUrl} alt={card.name} />
+          ) : (
+            <div className="card-image-placeholder" />
+          )}
+        </div>
         <div className="card-stats">
           <div className="stat">
             <span className="stat-label">ATK</span>

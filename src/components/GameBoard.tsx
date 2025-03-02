@@ -2,44 +2,73 @@ import React from 'react';
 import { GameState } from '../types/game';
 import Card from './Card';
 
+// Import all monster images
+const monsterImages = {
+  sui: require('../assets/monsters/sui.png'),
+  grum: require('../assets/monsters/grum.png'),
+  stomp: require('../assets/monsters/stomp.png'),
+  blaze: require('../assets/monsters/blaze.png'),
+  brocco: require('../assets/monsters/brocco.png'),
+  yeti: require('../assets/monsters/yeti.png'),
+  nubb: require('../assets/monsters/nubb.png'),
+  nom: require('../assets/monsters/nom.png'),
+  cyclo: require('../assets/monsters/cyclo.png'),
+  glint: require('../assets/monsters/glint.png'),
+  fluff: require('../assets/monsters/fluff.png'),
+  captainboo: require('../assets/monsters/captainboo.png'),
+  momo: require('../assets/monsters/momo.png'),
+  slippy: require('../assets/monsters/slippy.png'),
+  whirl: require('../assets/monsters/whirl.png'),
+  twispy: require('../assets/monsters/twispy.png'),
+  pico: require('../assets/monsters/pico.png'),
+  tuga: require('../assets/monsters/tuga.png'),
+  kai: require('../assets/monsters/kai.png'),
+  ruk: require('../assets/monsters/ruk.png'),
+  pyro: require('../assets/monsters/pyro.png'),
+  grow: require('../assets/monsters/grow.png'),
+  luna: require('../assets/monsters/luna.png'),
+  floar: require('../assets/monsters/floar.png'),
+  ecron: require('../assets/monsters/ecron.png'),
+};
+
 interface GameBoardProps {
   gameState: GameState;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({ gameState }) => {
-  // Test cards data
+  // Test cards data with all monsters
   const testCards = [
     {
       id: '1',
-      name: 'Fire Dragon',
+      name: 'SUI',
       attack: 150,
       defense: 100,
       hp: 200,
-      imageUrl: ''
+      imageUrl: monsterImages.sui
     },
     {
       id: '2',
-      name: 'Ice Golem',
+      name: 'GRUM',
       attack: 120,
       defense: 180,
       hp: 250,
-      imageUrl: ''
+      imageUrl: monsterImages.grum
     },
     {
       id: '3',
-      name: 'Thunder Bird',
+      name: 'STOMP',
       attack: 180,
       defense: 80,
       hp: 150,
-      imageUrl: ''
+      imageUrl: monsterImages.stomp
     },
     {
       id: '4',
-      name: 'Earth Giant',
+      name: 'BLAZE',
       attack: 200,
       defense: 150,
       hp: 300,
-      imageUrl: ''
+      imageUrl: monsterImages.blaze
     }
   ];
 
