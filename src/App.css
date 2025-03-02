@@ -252,3 +252,15 @@ body, html {
   opacity: 0.7;
   /* remove the transform: rotateX(180deg); */
 }
+.card-dragging {
+  cursor: grabbing;
+}
+
+.field-highlight {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px dashed rgba(255, 255, 255, 0.4);
+}
+
+.player-field {
+  transition: all 0.3s ease;
+}
