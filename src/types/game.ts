@@ -27,4 +27,8 @@ export interface GameState {
   };
   currentTurn: 'player' | 'opponent';
   gameStatus: 'waiting' | 'playing' | 'finished';
+  playerHealth: number;
+  playerMaxHealth: number;
+  opponentHealth: number;
+  opponentMaxHealth: number;
 }

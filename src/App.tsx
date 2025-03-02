@@ -11,13 +11,13 @@ function App() {
     players: {
       player: {
         id: 'player',
-        hp: 1000,
+        hp: 300,
         deck: [],
         hand: []
       },
       opponent: {
         id: 'opponent',
-        hp: 1000,
+        hp: 300,
         deck: [],
         hand: []
       }
@@ -27,7 +27,11 @@ function App() {
       opponent: []
     },
     currentTurn: 'player',
-    gameStatus: 'waiting'
+    gameStatus: 'waiting',
+    playerHealth: 300,
+    playerMaxHealth: 300,
+    opponentHealth: 300,
+    opponentMaxHealth: 300
   });
 
   const handleCombat = (attackingCard: CardType, defendingCard: CardType) => {

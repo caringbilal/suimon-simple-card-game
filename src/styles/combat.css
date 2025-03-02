@@ -1,5 +1,46 @@
+.health-bars-container {
+  position: fixed;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 300px;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  z-index: 10;
+}
+
+.health-bar-container {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 15px;
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.health-bar-container.opponent {
+  border-color: var(--danger-color);
+}
+
+.health-bar-container.player {
+  border-color: var(--primary-color);
+}
+
+.health-bar-label {
+  color: var(--text-color);
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
 .hp-bar {
-  flex: 1;
   height: 35px;
   background: rgba(0, 0, 0, 0.5);
   border-radius: 20px;
@@ -12,7 +53,7 @@
 .hp-fill {
   position: relative;
   height: 100%;
-  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
   background: linear-gradient(90deg, #2ecc71, #27ae60);
   display: flex;
   align-items: center;
@@ -41,12 +82,12 @@
 
 .hp-fill.damage {
   background: linear-gradient(90deg, #ff4757, #ff6b81);
-  animation: shake 0.5s ease-in-out;
+  animation: shake 0.8s ease-in-out;
 }
 
 .hp-fill.healing {
   background: linear-gradient(90deg, #2ecc71, #27ae60);
-  animation: pulse 0.5s ease-in-out;
+  animation: pulse 0.8s ease-in-out;
 }
 
 @keyframes hp-shine {
@@ -71,7 +112,7 @@
   font-weight: bold;
   color: #ff4757;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-  animation: damage-float 1s ease-out forwards;
+  animation: damage-float 1.5s ease-out forwards;
   z-index: 1000;
   pointer-events: none;
 }

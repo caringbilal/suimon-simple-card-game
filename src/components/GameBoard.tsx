@@ -39,6 +39,29 @@ interface GameBoardProps {
   setGameState: React.Dispatch<React.SetStateAction<GameState>>;
 }
 
+interface HealthBarProps {
+  current: number;
+  max: number;
+  isOpponent?: boolean;
+}
+
+const HealthBar: React.FC<HealthBarProps> = ({ current, max, isOpponent }) => {
+  const percentage = Math.max(0, Math.min(100, (current / max) * 100));
+  return (
+    <div className={`health-bar-container ${isOpponent ? 'opponent' : 'player'}`}>
+      <div className="health-bar-label">{isOpponent ? 'Opponent' : 'Player'}</div>
+      <div className="hp-bar">
+        <div 
+          className="hp-fill"
+          style={{ width: `${percentage}%` }}
+        >
+          {current}/{max} HP
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface CombatLogEntry {
   type: 'damage' | 'defense';
   message: string;
@@ -47,6 +70,20 @@ interface CombatLogEntry {
 
 const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameState }) => {
   const [combatLog, setCombatLog] = React.useState<CombatLogEntry[]>([]);
+  
+  const renderHealthBars = () => (
+    <div className="health-bars-container">
+      <HealthBar 
+        current={gameState.opponentHealth} 
+        max={gameState.opponentMaxHealth} 
+        isOpponent 
+      />
+      <HealthBar 
+        current={gameState.playerHealth} 
+        max={gameState.playerMaxHealth} 
+      />
+    </div>
+  );
   const [attackingCard, setAttackingCard] = React.useState<string | null>(null);
   const [showTurnIndicator, setShowTurnIndicator] = React.useState(false);
 
@@ -216,6 +253,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
             />
           ))}
         </div>
+        {renderHealthBars()}
         <div 
           ref={dropRef as unknown as React.LegacyRef<HTMLDivElement>}
           className={`player-field ${isOver ? 'field-highlight' : ''}`}
