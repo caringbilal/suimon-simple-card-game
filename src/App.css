@@ -1,11 +1,40 @@
+/* Add at the top of App.css */
+body, html {
+  margin: 0;
+  padding: 0;
+  background: #1a1a2e;
+  color: white;
+  min-height: 100vh;
+}
+
+.App {
+  text-align: center;
+  background: #1a1a2e;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.game-board {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+/* Update game status for better visibility */
+.game-status {
+  margin: 20px 0;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: white;
+  font-weight: bold;
+  font-size: 1.2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(5px);
+}
 .App {
   text-align: center;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
 
 @media (prefers-reduced-motion: no-preference) {
   .App-logo {
@@ -46,30 +75,38 @@
 .game-status {
   margin: 20px 0;
   padding: 10px;
-  background-color: #f0f0f0;
-  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  color: #000;
+  font-weight: bold;
+  font-size: 1.2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .card {
-  width: 250px; /* Reduced from original 856px */
-  height: 350px; /* Proportionally reduced from 1200px */
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(5px);
-  border-radius: 15px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  padding: 10px;
+  width: 180px;
+  height: 280px;  /* Increased from 240px to better fit the image */
+  background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 8px;
   transition: all 0.3s ease;
   cursor: pointer;
   position: relative;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 .card-image {
-  height: 200px; /* Adjusted for the new card size */
-  margin: 8px 0;
-  border-radius: 8px;
+  flex: 1;
+  position: relative;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  height: 200px;  /* Increased from 160px */
+  margin: 4px 0;
+  background: rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -78,101 +115,54 @@
 .card-image img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain; /* Changed from 'cover' to 'contain' */
+  display: block;
   transition: transform 0.3s ease;
 }
-
-.player-hand {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  flex-wrap: wrap;
-  margin: 20px 0;
-  padding: 0 20px;
-}
-.card:hover {
-  transform: translateY(-10px) scale(1.02);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
-  border-color: rgba(255, 255, 255, 0.6);
-}
-
-.card-content {
+.card-back-image {
+  width: 100%;
   height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.card-title {
-  font-size: 1.4rem;
-  margin: 0;
-  padding: 10px;
-  color: #ffffff;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-  font-weight: bold;
-  text-align: center;
-  background: rgba(0, 0, 0, 0.3);
+  object-fit: cover;
   border-radius: 8px;
 }
 
 .card-stats {
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 10px;
-  padding: 15px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 8px;
+  padding: 8px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  text-align: center;
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+  gap: 6px;
+  margin-top: auto;
 }
 
 .stat-label {
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.6);
   font-weight: bold;
+  text-transform: uppercase;
 }
 
 .stat-value {
-  font-size: 1.2rem;
-  color: #ffffff;
+  font-size: 1rem;
+  color: white;
   font-weight: bold;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-}
-.card-stats {
-  display: flex;
-  justify-content: space-around;
-  padding: 10px;
-  background-color: #f0f0f0;
-  border-radius: 5px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .player-hand {
   display: flex;
   justify-content: center;
+  gap: 15px;
   flex-wrap: wrap;
   margin: 20px 0;
-}
-.card-image {
-  height: 140px;
-  margin: 10px 0;
-  border-radius: 8px;
-  overflow: hidden;
-  background: rgba(0, 0, 0, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: 20px;
 }
 
-.card-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
+.card:hover {
+  transform: translateY(-8px) scale(1.05);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .card:hover .card-image img {
@@ -183,4 +173,82 @@
   width: 100%;
   height: 100%;
   background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.2) 100%);
+}
+/* Add these new styles */
+.player-area {
+  padding: 20px;
+  margin: 10px 0;
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin: 10px 0;
+  width: 100%;
+}
+
+.player-name {
+  font-size: 1.5rem;
+  color: white;
+  font-weight: bold;
+  min-width: 120px;
+  text-align: left;
+}
+
+.hp-bar {
+  flex: 1;
+  height: 35px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 20px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  position: relative;
+}
+
+.hp-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #2ecc71, #27ae60);
+  color: white;
+  display: flex;
+  align-items: center;
+  font-size: 1.4rem;
+  font-weight: bold;
+  padding-left: 20px;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.hp-fill span {
+  z-index: 1; /* Ensure text stays visible */
+  white-space: nowrap; /* Prevent text wrapping */
+}
+
+.battlefield {
+  min-height: 200px;
+  margin: 20px 0;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 10px;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 15px;
+}
+
+.opponent-field, .player-field {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  min-height: 100px;
+  padding: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+/* Remove the rotation from opponent hand */
+.opponent-hand {
+  opacity: 0.7;
+  /* remove the transform: rotateX(180deg); */
 }

@@ -1,20 +1,39 @@
 import React, { useState } from 'react';
 import './App.css';
 import GameBoard from './components/GameBoard';
-import { GameState } from './types/game';
+import { GameState, CardType } from './types/game';
 
 function App() {
   const [gameState, setGameState] = useState<GameState>({
-    players: {},
-    currentTurn: '',
+    players: {
+      player: {
+        id: 'player',
+        hp: 1000,
+        deck: [],
+        hand: []
+      },
+      opponent: {
+        id: 'opponent',
+        hp: 1000,
+        deck: [],
+        hand: []
+      }
+    },
+    currentTurn: 'player',
     gameStatus: 'waiting'
   });
 
+  const handleCardPlay = (card: CardType) => {
+    console.log('Card played:', card);
+  };
+
   return (
     <div className="App">
-      <header className="App-header">
-        <GameBoard gameState={gameState} />
-      </header>
+      <GameBoard 
+        gameState={gameState} 
+        onCardPlay={handleCardPlay}
+        setGameState={setGameState}
+      />
     </div>
   );
 }
