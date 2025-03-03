@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import './App.css';
 import GameBoard from './components/GameBoard';
 import { GameState, CardType } from './types/game';
+import { getInitialHand } from './data/monsters';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { GameAI } from './utils/gameAI';
+import AIPlayerProfile from './assets/ui/AIPlayer_Profile.jpg';
+import PlayerProfile from './assets/ui/Player_Profile.jpg';
 
 function App() {
   const [gameState, setGameState] = useState<GameState>({
@@ -13,13 +16,13 @@ function App() {
         id: 'player',
         hp: 300,
         deck: [],
-        hand: []
+        hand: getInitialHand(4)
       },
       opponent: {
         id: 'opponent',
         hp: 300,
         deck: [],
-        hand: []
+        hand: getInitialHand(4)
       }
     },
     battlefield: {
@@ -171,13 +174,24 @@ function App() {
           }
         }
 
+        // Check if either player needs new cards
+        const needsNewCards = updatedOpponentHand.length === 0 || updatedPlayerHand.length === 0;
+        
+        // If either player needs cards, deal new hands to both players
+        const finalPlayerHand = needsNewCards ? getInitialHand(4) : updatedPlayerHand;
+        const finalOpponentHand = needsNewCards ? getInitialHand(4) : updatedOpponentHand;
+
         return {
           ...afterPlayerMove,
           players: {
             ...afterPlayerMove.players,
+            player: {
+              ...afterPlayerMove.players.player,
+              hand: finalPlayerHand
+            },
             opponent: {
               ...afterPlayerMove.players.opponent,
-              hand: updatedOpponentHand
+              hand: finalOpponentHand
             }
           },
           battlefield: updatedBattlefield,
@@ -187,6 +201,16 @@ function App() {
 
       return afterPlayerMove;
     });
+  };
+
+  const playerInfo = {
+    name: "Player",
+    avatar: PlayerProfile,
+  };
+
+  const opponentInfo = {
+    name: "AI Opponent",
+    avatar: AIPlayerProfile,
   };
 
   return (
@@ -240,6 +264,8 @@ function App() {
             gameState={gameState}
             onCardPlay={handleCardPlay}
             setGameState={setGameState}
+            playerInfo={playerInfo}
+            opponentInfo={opponentInfo}
           />
         </div>
       </div>

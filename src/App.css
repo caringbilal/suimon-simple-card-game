@@ -360,3 +360,34 @@
     transform: translate(-50%, -50%);
   }
 }
+.player-profile {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+.profile-picture {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.player-name {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.opponent-profile .profile-picture {
+  border-color: rgba(255, 71, 87, 0.4);
+}
+
+.player-profile .profile-picture {
+  border-color: rgba(46, 204, 113, 0.4);
+}
