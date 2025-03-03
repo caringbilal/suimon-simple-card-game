@@ -233,36 +233,130 @@
   border-color: rgba(46, 204, 113, 0.3);
 }
 
-@keyframes fadeInOut {
-  0%, 100% { opacity: 0; }
-  20%, 80% { opacity: 1; }
+.instructions-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+  backdrop-filter: blur(5px);
+  transition: all 0.3s ease;
 }
 
-@keyframes slideIn {
-  from { opacity: 0; transform: translateX(20px); }
-  to { opacity: 1; transform: translateX(0); }
+.instructions-button:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
-.combat-log::-webkit-scrollbar {
-  width: 6px;
+.instructions-dialog {
+  position: absolute;
+  top: 80px;
+  right: 20px;
+  width: 350px;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 20px;
+  color: white;
+  z-index: 1000;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.combat-log::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 3px;
+.instructions-content {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 10px;
 }
 
-.combat-log::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 3px;
+.instructions-content h2 {
+  margin-top: 0;
+  font-size: 1.5em;
+  color: #fff;
+  margin-bottom: 20px;
 }
 
-.combat-log::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
+.instruction-section {
+  margin-bottom: 20px;
 }
 
-/* Utility classes */
-.text-center { text-align: center; }
-.mt-2 { margin-top: 0.5rem; }
-.mb-2 { margin-bottom: 0.5rem; }
-.p-2 { padding: 0.5rem; }
+.instruction-section h3 {
+  color: #fff;
+  font-size: 1.2em;
+  margin-bottom: 10px;
+}
+
+.instruction-section p,
+.instruction-section ul {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.close-instructions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 5px;
+  line-height: 1;
+}
+
+.close-instructions:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.instruction-section li {
+  padding: 8px 0;
+  padding-left: 25px;
+  position: relative;
+}
+
+.instruction-section li:before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: #4a9eff;
+}
+
+.close-instructions {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.close-instructions:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: rotate(90deg);
+}
+
+@keyframes dialogFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}

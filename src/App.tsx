@@ -34,6 +34,8 @@ function App() {
     opponentMaxHealth: 300
   });
 
+  const [showInstructions, setShowInstructions] = useState(false);
+
   const handleCombat = (attackingCard: CardType, defendingCard: CardType) => {
     const damage = Math.max(0, attackingCard.attack - defendingCard.defense);
     const updatedCard = {
@@ -192,6 +194,48 @@ function App() {
       <div className="app">
         <div className="background-rectangle" />
         <div className="game-container">
+          <button 
+            className="instructions-button"
+            onClick={() => setShowInstructions(!showInstructions)}
+          >
+            {showInstructions ? 'Hide Instructions' : 'Show Instructions'}
+          </button>
+          
+          {showInstructions && (
+            <div className="instructions-dialog">
+              <div className="instructions-content">
+                <h2>How to Play Suimon Card Battle</h2>
+                <div className="instruction-section">
+                  <h3>Game Overview</h3>
+                  <p>Suimon Card Battle is a strategic card game where you battle against an AI opponent using unique monster cards.</p>
+                </div>
+                <div className="instruction-section">
+                  <h3>Basic Rules</h3>
+                  <ul>
+                    <li>Each player starts with 300 HP and 4 cards in hand</li>
+                    <li>Players take turns playing one card at a time</li>
+                    <li>Cards have Attack, Defense, and HP stats</li>
+                    <li>When cards battle, they deal damage equal to their Attack minus the opponent's Defense</li>
+                  </ul>
+                </div>
+                <div className="instruction-section">
+                  <h3>How to Win</h3>
+                  <ul>
+                    <li>Reduce your opponent's HP to 0</li>
+                    <li>Use strategic card placement and timing</li>
+                    <li>Consider card stats when choosing which to play</li>
+                  </ul>
+                </div>
+                <button 
+                  className="close-instructions"
+                  onClick={() => setShowInstructions(false)}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          )}
+          
           <GameBoard
             gameState={gameState}
             onCardPlay={handleCardPlay}
