@@ -115,6 +115,22 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
 
   return (
     <div className="game-board">
+      {/* Health Summary Boxes */}
+      <div className="health-summary-boxes">
+        <div className="health-summary opponent-summary">
+          <div className="summary-title">Opponent Cards Total HP</div>
+          <div className="summary-value">
+            {gameState.players.opponent.hand.reduce((total, card) => total + card.hp, 0)}
+          </div>
+        </div>
+        <div className="health-summary player-summary">
+          <div className="summary-title">Player Cards Total HP</div>
+          <div className="summary-value">
+            {gameState.players.player.hand.reduce((total, card) => total + card.hp, 0)}
+          </div>
+        </div>
+      </div>
+
       {/* Opponent Area */}
       <div className="player-area opponent">
         <div className="player-profile opponent-profile">
@@ -128,7 +144,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
         <div className="player-info">
           <div className="player-name">Opponent</div>
           <div className="hp-bar">
-            <div className="hp-fill" style={{ width: `${(gameState.players.opponent.hp / 1000) * 100}%` }}>
+            <div className="hp-fill" style={{ width: `${(gameState.players.opponent.hp / gameState.opponentMaxHealth) * 100}%` }}>
             <span>{gameState.players.opponent.hp} HP</span>
           </div>
           </div>
@@ -182,7 +198,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
         <div className="player-info">
           <div className="player-name">Player</div>
           <div className="hp-bar">
-            <div className="hp-fill" style={{ width: `${(gameState.players.player.hp / 1000) * 100}%` }}>
+            <div className="hp-fill" style={{ width: `${(gameState.players.player.hp / gameState.playerMaxHealth) * 100}%` }}>
               <span>{gameState.players.player.hp} HP</span>
             </div>
           </div>
