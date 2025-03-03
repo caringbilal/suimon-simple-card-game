@@ -1,6 +1,6 @@
 .health-bars-container {
   position: fixed;
-  left: 20px;
+  left: 450px;
   top: 50%;
   transform: translateY(-50%);
   width: 300px;
@@ -9,15 +9,16 @@
   flex-direction: column;
   gap: 20px;
   z-index: 10;
+  opacity: 1;
 }
 
 .health-bar-container {
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   padding: 15px;
   border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }

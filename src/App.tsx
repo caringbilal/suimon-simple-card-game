@@ -189,12 +189,15 @@ function App() {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="App">
-        <GameBoard 
-          gameState={gameState} 
-          onCardPlay={handleCardPlay}
-          setGameState={setGameState}
-        />
+      <div className="app">
+        <div className="background-rectangle" />
+        <div className="game-container">
+          <GameBoard
+            gameState={gameState}
+            onCardPlay={handleCardPlay}
+            setGameState={setGameState}
+          />
+        </div>
       </div>
     </DndProvider>
   );
