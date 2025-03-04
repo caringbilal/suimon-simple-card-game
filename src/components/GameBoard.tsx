@@ -118,15 +118,29 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
       {/* Health Summary Boxes */}
       <div className="health-summary-boxes">
         <div className="health-summary opponent-summary">
-          <div className="summary-title">Opponent Cards Total HP</div>
-          <div className="summary-value">
-            {gameState.players.opponent.hand.reduce((total, card) => total + card.hp, 0)}
+          <img 
+            src={opponentInfo.avatar} 
+            alt="Opponent" 
+            className="profile-picture"
+          />
+          <div className="summary-content">
+            <div className="summary-title">OPPONENT CARDS TOTAL HP</div>
+            <div className="summary-value">
+              {gameState.players.opponent.hand.reduce((total, card) => total + card.hp, 0)}
+            </div>
           </div>
         </div>
         <div className="health-summary player-summary">
-          <div className="summary-title">Player Cards Total HP</div>
-          <div className="summary-value">
-            {gameState.players.player.hand.reduce((total, card) => total + card.hp, 0)}
+          <img 
+            src={playerInfo.avatar} 
+            alt="Player" 
+            className="profile-picture"
+          />
+          <div className="summary-content">
+            <div className="summary-title">PLAYER CARDS TOTAL HP</div>
+            <div className="summary-value">
+              {gameState.players.player.hand.reduce((total, card) => total + card.hp, 0)}
+            </div>
           </div>
         </div>
       </div>
@@ -134,11 +148,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
       {/* Opponent Area */}
       <div className="player-area opponent">
         <div className="player-profile opponent-profile">
-          <img 
-            src={opponentInfo.avatar} 
-            alt="Opponent" 
-            className="profile-picture"
-          />
           <span className="player-name">{opponentInfo.name}</span>
         </div>
         <div className="player-info">
@@ -188,11 +197,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
       {/* Player Area */}
       <div className="player-area current-player">
         <div className="player-profile">
-          <img 
-            src={playerInfo.avatar} 
-            alt="Player" 
-            className="profile-picture"
-          />
           <span className="player-name">{playerInfo.name}</span>
         </div>
         <div className="player-info">

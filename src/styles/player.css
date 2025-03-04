@@ -16,36 +16,35 @@
   border-radius: 12px;
   width: 100%;
   display: flex;
-  align-items: center;  /* Changed to align items center */
+  align-items: center;
   gap: 15px;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
-.profile-section {
+.summary-content {
   display: flex;
-  align-items: center;
-  gap: 15px;
-  flex: 1;  /* Added flex grow */
+  flex-direction: column;
+  flex: 1;
 }
 
 .profile-picture {
-  width: 50px;  /* Adjusted size */
+  width: 50px;
   height: 50px;
   border-radius: 10px;
   object-fit: cover;
   border: 2px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  background: rgba(0, 0, 0, 0.3);  /* Added background */
+  background: rgba(0, 0, 0, 0.3);
 }
 
 .opponent-summary .profile-picture {
-  border-color: rgba(255, 71, 87, 0.4);  /* Red border for opponent */
+  border-color: rgba(255, 71, 87, 0.4);
 }
 
 .player-summary .profile-picture {
-  border-color: rgba(46, 204, 113, 0.4);  /* Green border for player */
+  border-color: rgba(46, 204, 113, 0.4);
 }
 
 .opponent-summary {
@@ -64,15 +63,6 @@
   padding: 12px;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
-}
-
-.profile-picture {
-  width: 60px;
-  height: 60px;
-  border-radius: 10px;
-  object-fit: cover;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .health-info {
