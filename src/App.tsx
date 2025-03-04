@@ -196,21 +196,19 @@ function App() {
       
       if (opponentHand.length > 0) {
         const aiCard = gameAI.decideMove(opponentHand, playerField);
-        // Ensure maxHp is set for the AI card
         aiCard.maxHp = aiCard.maxHp || aiCard.hp;
         const updatedOpponentHand = opponentHand.filter(c => c.id !== aiCard.id);
 
-        // Add AI card to battlefield
         updatedBattlefield = {
           ...updatedBattlefield,
-          opponent: [...updatedBattlefield.opponent, { ...aiCard }]
+          opponent: [...updatedBattlefield.opponent, aiCard]
         };
 
-        // Always ensure opponent has exactly 4 cards total (hand + battlefield)
+        // Always ensure opponent has exactly 4 cards total
         const totalOpponentCards = updatedOpponentHand.length + updatedBattlefield.opponent.length;
         const newOpponentCards = totalOpponentCards < 4 ? getInitialHand(4 - totalOpponentCards).map(card => ({
           ...card,
-          maxHp: card.maxHp || card.hp // Ensure maxHp is set for new cards
+          maxHp: card.maxHp || card.hp
         })) : [];
 
         return {
@@ -223,7 +221,8 @@ function App() {
             }
           },
           battlefield: updatedBattlefield,
-          currentTurn: 'player'
+          currentTurn: 'player',
+          gameStatus: 'playing'
         };
       }
 

@@ -249,3 +249,58 @@
   font-weight: bold;
   font-size: 1.2em;
 }
+.combat-stats-display {
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 8px;
+  padding: 15px;
+  margin: 10px;
+  width: 300px;
+  max-height: 400px;
+  overflow-y: auto;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+.combat-stats-title {
+  color: #fff;
+  font-size: 1.2em;
+  font-weight: bold;
+  margin-bottom: 10px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  padding-bottom: 5px;
+}
+
+.combat-stats-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.combat-log-entry {
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  line-height: 1.4;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.combat-log-entry.attack {
+  background: rgba(255, 50, 50, 0.2);
+  border-left: 3px solid #ff5050;
+}
+
+.combat-log-entry.defense {
+  background: rgba(50, 150, 255, 0.2);
+  border-left: 3px solid #3296ff;
+}
+
+.combat-log-entry.info {
+  background: rgba(255, 255, 255, 0.15);
+  border-left: 3px solid #ffffff;
+}
+
+.combat-log-entry.death {
+  background: rgba(128, 0, 128, 0.2);
+  border-left: 3px solid #800080;
+}
