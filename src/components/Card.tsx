@@ -7,10 +7,11 @@ interface CardProps {
   card: CardType;
   onClick?: () => void;
   isAttacking?: boolean;
+  isDefending?: boolean;
   onAnimationEnd?: () => void;
 }
 
-const Card: React.FC<CardProps> = ({ card, onClick, isAttacking, onAnimationEnd }) => {
+const Card: React.FC<CardProps> = ({ card, onClick, isAttacking, isDefending, onAnimationEnd }) => {
   const [{ isDragging }, dragRef] = useDrag<CardType, unknown, { isDragging: boolean }>({    type: 'CARD',
     item: card,
     collect: (monitor) => ({
@@ -21,7 +22,7 @@ const Card: React.FC<CardProps> = ({ card, onClick, isAttacking, onAnimationEnd 
   return (
     <div 
       ref={dragRef as unknown as React.LegacyRef<HTMLDivElement>}
-      className={`card ${isDragging ? 'card-dragging' : ''} ${isAttacking ? 'attacking' : ''}`}
+      className={`card ${isDragging ? 'card-dragging' : ''} ${isAttacking ? 'attacking' : ''} ${isDefending ? 'defending' : ''}`}
       style={{ opacity: isDragging ? 0.5 : 1 }}
       onClick={onClick}
       onAnimationEnd={onAnimationEnd}
