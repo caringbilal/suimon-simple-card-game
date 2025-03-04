@@ -12,12 +12,16 @@ interface CardProps {
 }
 
 const Card: React.FC<CardProps> = ({ card, onClick, isAttacking, isDefending, onAnimationEnd }) => {
-  const [{ isDragging }, dragRef] = useDrag<CardType, unknown, { isDragging: boolean }>({    type: 'CARD',
+  const [{ isDragging }, dragRef] = useDrag<CardType, unknown, { isDragging: boolean }>({
+    type: 'CARD',
     item: card,
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
   });
+
+  // Log card details outside of JSX
+  console.log(`Card: ${card.name}, HP: ${card.hp}, MaxHP: ${card.maxHp}`);
 
   return (
     <div 
@@ -27,7 +31,12 @@ const Card: React.FC<CardProps> = ({ card, onClick, isAttacking, isDefending, on
       onClick={onClick}
       onAnimationEnd={onAnimationEnd}
     >
-      <div className="card-title">{card.name}</div>
+      <div className="card-title">
+        {card.name}
+        <span className="health-percentage">
+          {Math.round((card.hp / card.maxHp) * 100)}%
+        </span>
+      </div>
       <div className="card-image">
         <img src={card.imageUrl} alt={card.name} />
       </div>

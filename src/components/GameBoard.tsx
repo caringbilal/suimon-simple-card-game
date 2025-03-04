@@ -60,44 +60,50 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
 
   // Update combat log when cards attack
   useEffect(() => {
+    // Process combat for all cards on the battlefield
     if (gameState.battlefield.player.length > 0 && gameState.battlefield.opponent.length > 0) {
-      const playerCard = gameState.battlefield.player[0];
-      const opponentCard = gameState.battlefield.opponent[0];
-      
-      // Calculate damage
-      const playerDamage = Math.max(0, playerCard.attack - opponentCard.defense);
-      const opponentDamage = Math.max(0, opponentCard.attack - playerCard.defense);
-
-      // Trigger attack and defense animations
-      if (playerDamage > 0) {
-        // Player attacks, opponent defends
-        setAttackingCard(playerCard.id);
-        setDefendingCard(opponentCard.id);
+      // Process combat for each pair of cards (up to 4 vs 4)
+      const processCombat = async () => {
+        // Get all player and opponent cards
+        const playerCards = gameState.battlefield.player;
+        const opponentCards = gameState.battlefield.opponent;
         
-        addCombatLogEntry(
-          `${playerCard.name} attacks ${opponentCard.name} for ${playerDamage} damage!`,
-          'attack'
-        );
-      } else {
-        // Player attacks but opponent blocks
-        setAttackingCard(playerCard.id);
-        setDefendingCard(opponentCard.id);
-        
-        addCombatLogEntry(
-          `${opponentCard.name} blocks ${playerCard.name}'s attack!`,
-          'defense'
-        );
-      }
-
-      // Reset animations after a delay
-      setTimeout(() => {
-        setAttackingCard(null);
-        setDefendingCard(null);
-        
-        // After a short pause, show the opponent's attack
-        setTimeout(() => {
+        // Process combat for each card pair sequentially
+        for (let i = 0; i < Math.min(playerCards.length, opponentCards.length); i++) {
+          const playerCard = playerCards[i];
+          const opponentCard = opponentCards[i];
+          
+          // Calculate damage
+          const playerDamage = Math.max(0, playerCard.attack - opponentCard.defense);
+          const opponentDamage = Math.max(0, opponentCard.attack - playerCard.defense);
+          
+          // Player attacks first
+          if (playerDamage > 0) {
+            setAttackingCard(playerCard.id);
+            setDefendingCard(opponentCard.id);
+            
+            addCombatLogEntry(
+              `${playerCard.name} attacks ${opponentCard.name} for ${playerDamage} damage!`,
+              'attack'
+            );
+          } else {
+            setAttackingCard(playerCard.id);
+            setDefendingCard(opponentCard.id);
+            
+            addCombatLogEntry(
+              `${opponentCard.name} blocks ${playerCard.name}'s attack!`,
+              'defense'
+            );
+          }
+          
+          // Wait for animation
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          setAttackingCard(null);
+          setDefendingCard(null);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Opponent attacks
           if (opponentDamage > 0) {
-            // Opponent attacks, player defends
             setAttackingCard(opponentCard.id);
             setDefendingCard(playerCard.id);
             
@@ -106,7 +112,6 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
               'attack'
             );
           } else {
-            // Opponent attacks but player blocks
             setAttackingCard(opponentCard.id);
             setDefendingCard(playerCard.id);
             
@@ -116,21 +121,25 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
             );
           }
           
-          // Reset animations after opponent's attack
-          setTimeout(() => {
-            setAttackingCard(null);
-            setDefendingCard(null);
-            
-            // Check for defeated cards
-            if (playerCard.hp <= 0) {
-              addCombatLogEntry(`${playerCard.name} has been defeated!`, 'death');
-            }
-            if (opponentCard.hp <= 0) {
-              addCombatLogEntry(`${opponentCard.name} has been defeated!`, 'death');
-            }
-          }, 2500); // Wait for animation to complete
-        }, 500); // Short pause between player and opponent attacks
-      }, 2500); // Wait for animation to complete
+          // Wait for animation
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          setAttackingCard(null);
+          setDefendingCard(null);
+          
+          // Check for defeated cards
+          if (playerCard.hp <= 0) {
+            addCombatLogEntry(`${playerCard.name} has been defeated!`, 'death');
+          }
+          if (opponentCard.hp <= 0) {
+            addCombatLogEntry(`${opponentCard.name} has been defeated!`, 'death');
+          }
+          
+          // Short pause between card pairs
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      };
+      
+      processCombat();
     }
   }, [gameState.battlefield]);
 

@@ -5,6 +5,7 @@ export interface CardType {
   attack: number;
   defense: number;
   hp: number;
+  maxHp: number;  // Add this line
   imageUrl: string;
 }
 

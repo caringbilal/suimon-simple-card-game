@@ -16,13 +16,19 @@ function App() {
         id: 'player',
         hp: 300,
         deck: [],
-        hand: getInitialHand(4)
+        hand: getInitialHand(4).map(card => ({
+          ...card,
+          maxHp: card.maxHp || card.hp // Ensure maxHp is set
+        }))
       },
       opponent: {
         id: 'opponent',
         hp: 300,
         deck: [],
-        hand: getInitialHand(4)
+        hand: getInitialHand(4).map(card => ({
+          ...card,
+          maxHp: card.maxHp || card.hp // Ensure maxHp is set
+        }))
       }
     },
     battlefield: {
@@ -159,10 +165,20 @@ function App() {
           const updatedOpponentCard = handleCombat(playerCard, aiCard);
           const updatedPlayerCard = handleCombat(aiCard, playerCard);
 
-          // Update battlefield with combat results
+          // Update battlefield with combat results - maintain multiple cards
+          // Find the cards that were in combat and update them
+          const updatedPlayerCards = updatedBattlefield.player.map(c => 
+            c.id === playerCard.id ? updatedPlayerCard : c
+          ).filter(c => c.hp > 0); // Remove defeated cards
+          
+          const updatedOpponentCards = updatedBattlefield.opponent.map(c => 
+            c.id === aiCard.id ? updatedOpponentCard : c
+          ).filter(c => c.hp > 0); // Remove defeated cards
+          
+          // Limit battlefield to 4 cards per player
           updatedBattlefield = {
-            opponent: updatedOpponentCard.hp > 0 ? [updatedOpponentCard] : [],
-            player: updatedPlayerCard.hp > 0 ? [updatedPlayerCard] : []
+            opponent: updatedOpponentCards.slice(0, 4),
+            player: updatedPlayerCards.slice(0, 4)
           };
 
           // Calculate direct damage if a card is destroyed
