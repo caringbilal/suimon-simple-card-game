@@ -47,6 +47,20 @@
   color: white;
   font-weight: bold;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  .hp-fill span {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    color: white;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    z-index: 1;
+    left: 0;
+    right: 0;
+    font-size: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
 }
 
 .hp-fill::after {
@@ -204,4 +218,34 @@
 
 .combat-log::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+.kill-counter {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px;
+  margin: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 1.1em;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+.kill-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kill-label {
+  font-weight: bold;
+  color: #aaa;
+}
+
+.kill-value {
+  color: #ff6b6b;
+  font-weight: bold;
+  font-size: 1.2em;
 }

@@ -9,6 +9,16 @@ import { GameAI } from './utils/gameAI';
 import AIPlayerProfile from './assets/ui/AIPlayer_Profile.jpg';
 import PlayerProfile from './assets/ui/Player_Profile.jpg';
 
+const playerInfo = {
+  name: "Player",
+  avatar: PlayerProfile,
+};
+
+const opponentInfo = {
+  name: "AI Opponent",
+  avatar: AIPlayerProfile,
+};
+
 function App() {
   const [gameState, setGameState] = useState<GameState>({
     players: {
@@ -52,13 +62,16 @@ function App() {
       hp: Math.max(0, defendingCard.hp - damage)
     };
 
+    let newPlayerHP = gameState.players.player.hp;
+    let newOpponentHP = gameState.players.opponent.hp;
+
     // Update player HP based on damage and show visual feedback
     setGameState(prev => {
       const playerCard = prev.battlefield.player[0];
       const opponentCard = prev.battlefield.opponent[0];
-      const newPlayerHP = Math.max(0, prev.players.player.hp - 
+      newPlayerHP = Math.max(0, prev.players.player.hp - 
         (playerCard && defendingCard.id === playerCard.id ? damage : 0));
-      const newOpponentHP = Math.max(0, prev.players.opponent.hp - 
+      newOpponentHP = Math.max(0, prev.players.opponent.hp - 
         (opponentCard && defendingCard.id === opponentCard.id ? damage : 0));
 
       // Add visual feedback for HP changes
@@ -73,6 +86,41 @@ function App() {
       if (opponentHPBar && newOpponentHP < prev.players.opponent.hp) {
         opponentHPBar.classList.add('damage');
         setTimeout(() => opponentHPBar.classList.remove('damage'), 500);
+      }
+
+      // Immediately check for game over conditions
+      if (newPlayerHP <= 0) {
+        setTimeout(() => alert('Game Over - Opponent Wins!'), 100);
+        return {
+          ...prev,
+          players: {
+            ...prev.players,
+            player: {
+              ...prev.players.player,
+              hp: 0
+            }
+          },
+          gameStatus: 'finished',
+          currentTurn: 'opponent',
+          battlefield: { player: [], opponent: [] }
+        };
+      }
+
+      if (newOpponentHP <= 0) {
+        setTimeout(() => alert('Congratulations - You Win!'), 100);
+        return {
+          ...prev,
+          players: {
+            ...prev.players,
+            opponent: {
+              ...prev.players.opponent,
+              hp: 0
+            }
+          },
+          gameStatus: 'finished',
+          currentTurn: 'player',
+          battlefield: { player: [], opponent: [] }
+        };
       }
 
       return {
@@ -91,30 +139,22 @@ function App() {
       };
     });
 
-    // Check for game over condition
-    if (gameState.players.player.hp <= 0) {
-      setGameState(prev => ({
-        ...prev,
-        gameStatus: 'finished',
-        currentTurn: 'opponent',
-        battlefield: { player: [], opponent: [] }
-      }));
-      alert('Game Over - Opponent Wins!');
-    } else if (gameState.players.opponent.hp <= 0) {
-      setGameState(prev => ({
-        ...prev,
-        gameStatus: 'finished',
-        currentTurn: 'player',
-        battlefield: { player: [], opponent: [] }
-      }));
-      alert('Congratulations - You Win!');
-    }
-
     return updatedCard;
   };
 
   const handleCardPlay = (card: CardType) => {
     if (gameState.currentTurn !== 'player') return;
+
+    // Check for game over conditions first
+    if (gameState.players.player.hp <= 0 || gameState.players.opponent.hp <= 0) {
+      setGameState(prev => ({
+        ...prev,
+        gameStatus: 'finished',
+        currentTurn: prev.players.player.hp <= 0 ? 'opponent' : 'player',
+        battlefield: { player: [], opponent: [] }
+      }));
+      return;
+    }
 
     setGameState(prevState => {
       // Remove the card from player's hand
@@ -126,6 +166,14 @@ function App() {
         player: [...prevState.battlefield.player, card]
       };
 
+      // Calculate if player needs new cards to maintain 4 cards total
+      const totalPlayerCards = updatedPlayerHand.length + updatedBattlefield.player.length;
+      const newPlayerCards = totalPlayerCards < 4 ? 
+        getInitialHand(4 - totalPlayerCards).map(card => ({
+          ...card,
+          maxHp: card.maxHp || card.hp
+        })) : [];
+
       // Update game state after player's move
       const afterPlayerMove: GameState = {
         ...prevState,
@@ -133,100 +181,54 @@ function App() {
           ...prevState.players,
           player: {
             ...prevState.players.player,
-            hand: updatedPlayerHand
-          },
-          opponent: prevState.players.opponent
+            hand: [...updatedPlayerHand, ...newPlayerCards]
+          }
         },
         battlefield: updatedBattlefield,
-        currentTurn: 'opponent' as const,
+        currentTurn: 'opponent',
         gameStatus: 'playing'
       };
 
       // AI opponent's turn
       const gameAI = new GameAI();
       const opponentHand = afterPlayerMove.players.opponent.hand;
-      const playerField = afterPlayerMove.battlefield.player;
+      const playerField = updatedBattlefield.player;
       
       if (opponentHand.length > 0) {
         const aiCard = gameAI.decideMove(opponentHand, playerField);
+        // Ensure maxHp is set for the AI card
+        aiCard.maxHp = aiCard.maxHp || aiCard.hp;
         const updatedOpponentHand = opponentHand.filter(c => c.id !== aiCard.id);
 
         // Add AI card to battlefield
         updatedBattlefield = {
           ...updatedBattlefield,
-          opponent: [...updatedBattlefield.opponent, aiCard]
+          opponent: [...updatedBattlefield.opponent, { ...aiCard }]
         };
 
-        // Handle combat if there are cards on both sides
-        if (playerField.length > 0) {
-          const playerCard = playerField[0];
-
-          // Both cards attack simultaneously
-          const updatedOpponentCard = handleCombat(playerCard, aiCard);
-          const updatedPlayerCard = handleCombat(aiCard, playerCard);
-
-          // Update battlefield with combat results - maintain multiple cards
-          // Find the cards that were in combat and update them
-          const updatedPlayerCards = updatedBattlefield.player.map(c => 
-            c.id === playerCard.id ? updatedPlayerCard : c
-          ).filter(c => c.hp > 0); // Remove defeated cards
-          
-          const updatedOpponentCards = updatedBattlefield.opponent.map(c => 
-            c.id === aiCard.id ? updatedOpponentCard : c
-          ).filter(c => c.hp > 0); // Remove defeated cards
-          
-          // Limit battlefield to 4 cards per player
-          updatedBattlefield = {
-            opponent: updatedOpponentCards.slice(0, 4),
-            player: updatedPlayerCards.slice(0, 4)
-          };
-
-          // Calculate direct damage if a card is destroyed
-          if (updatedPlayerCard.hp <= 0) {
-            afterPlayerMove.players.player.hp -= Math.max(0, aiCard.attack - playerCard.defense);
-          }
-          if (updatedOpponentCard.hp <= 0) {
-            afterPlayerMove.players.opponent.hp -= Math.max(0, playerCard.attack - aiCard.defense);
-          }
-        }
-
-        // Check if either player needs new cards
-        const needsNewCards = updatedOpponentHand.length === 0 || updatedPlayerHand.length === 0;
-        
-        // If either player needs cards, deal new hands to both players
-        const finalPlayerHand = needsNewCards ? getInitialHand(4) : updatedPlayerHand;
-        const finalOpponentHand = needsNewCards ? getInitialHand(4) : updatedOpponentHand;
+        // Always ensure opponent has exactly 4 cards total (hand + battlefield)
+        const totalOpponentCards = updatedOpponentHand.length + updatedBattlefield.opponent.length;
+        const newOpponentCards = totalOpponentCards < 4 ? getInitialHand(4 - totalOpponentCards).map(card => ({
+          ...card,
+          maxHp: card.maxHp || card.hp // Ensure maxHp is set for new cards
+        })) : [];
 
         return {
           ...afterPlayerMove,
           players: {
             ...afterPlayerMove.players,
-            player: {
-              ...afterPlayerMove.players.player,
-              hand: finalPlayerHand
-            },
             opponent: {
               ...afterPlayerMove.players.opponent,
-              hand: finalOpponentHand
+              hand: [...updatedOpponentHand, ...newOpponentCards]
             }
           },
           battlefield: updatedBattlefield,
-          currentTurn: 'player' as const
+          currentTurn: 'player'
         };
       }
 
       return afterPlayerMove;
     });
-  };
-
-  const playerInfo = {
-    name: "Player",
-    avatar: PlayerProfile,
-  };
-
-  const opponentInfo = {
-    name: "AI Opponent",
-    avatar: AIPlayerProfile,
   };
 
   return (
@@ -247,23 +249,33 @@ function App() {
                 <h2>How to Play Suimon Card Battle</h2>
                 <div className="instruction-section">
                   <h3>Game Overview</h3>
-                  <p>Suimon Card Battle is a strategic card game where you battle against an AI opponent using unique monster cards.</p>
+                  <p>Suimon Card Battle is a strategic card game where you battle against an AI opponent using unique monster cards with Attack, Defense, and HP stats.</p>
                 </div>
                 <div className="instruction-section">
-                  <h3>Basic Rules</h3>
+                  <h3>Card Combat System</h3>
                   <ul>
-                    <li>Each player starts with 300 HP and 4 cards in hand</li>
-                    <li>Players take turns playing one card at a time</li>
-                    <li>Cards have Attack, Defense, and HP stats</li>
-                    <li>When cards battle, they deal damage equal to their Attack minus the opponent's Defense</li>
+                    <li>Each player starts with 300 HP and 4 cards</li>
+                    <li>Players take turns playing one card to the battlefield</li>
+                    <li>When both players have cards on the battlefield, they automatically battle:</li>
+                    <li>- Damage dealt = Attacker's Attack - Defender's Defense</li>
+                    <li>- Cards battle simultaneously, damaging each other</li>
+                    <li>- When a card's HP reaches 0, it's removed and its owner takes direct damage</li>
                   </ul>
                 </div>
                 <div className="instruction-section">
-                  <h3>How to Win</h3>
+                  <h3>Card Management</h3>
                   <ul>
-                    <li>Reduce your opponent's HP to 0</li>
-                    <li>Use strategic card placement and timing</li>
-                    <li>Consider card stats when choosing which to play</li>
+                    <li>Players always maintain 4 cards total (hand + battlefield combined)</li>
+                    <li>New cards are automatically drawn when needed</li>
+                    <li>Each card shows its current HP percentage and stats</li>
+                  </ul>
+                </div>
+                <div className="instruction-section">
+                  <h3>Winning the Game</h3>
+                  <ul>
+                    <li>Reduce your opponent's HP to 0 to win</li>
+                    <li>Strategic card placement is key - consider Attack vs Defense stats</li>
+                    <li>Protect your HP by keeping strong defenders on the field</li>
                   </ul>
                 </div>
                 <button 
