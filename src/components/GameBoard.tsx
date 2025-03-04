@@ -382,17 +382,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
 
       {/* Health Summary Boxes */}
       <div className="health-summary-boxes">
-        {/* Combat Stats Display */}
-        <div className="combat-stats-display">
-          <div className="combat-stats-title">Combat Statistics</div>
-          <div className="combat-stats-content">
-            {combatLog.slice(-5).map((entry, index) => (
-              <div key={index} className={`combat-log-entry ${entry.type}`}>
-                {entry.message}
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Opponent's Health Summary */}
         <div className="health-summary opponent-summary">
           <img 
             src={opponentInfo.avatar} 
@@ -417,7 +407,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
             </div>
           </div>
         </div>
-
+        {/* Player's Health Summary */}
         <div className="health-summary player-summary">
           <img 
             src={playerInfo.avatar} 
@@ -440,6 +430,17 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
                 <span>{gameState.players.player.hp} Energy </span>
               </div>
             </div>
+          </div>
+        </div>
+        {/* Combat Stats Display */}
+        <div className="combat-stats-display">
+          <div className="combat-stats-title">Combat Statistics</div>
+          <div className="combat-stats-content">
+            {combatLog.slice(-5).map((entry, index) => (
+              <div key={index} className={`combat-log-entry ${entry.type}`}>
+                {entry.message}
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -531,14 +532,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
         </div>
       </div>
 
-      {/* Combat Log */}
-      <div className="combat-log">
-        {combatLog.map((entry, index) => (
-          <div key={entry.timestamp} className={`combat-log-entry ${entry.type}`}>
-            {entry.message}
-          </div>
-        ))}
-      </div>
+      
     </div>
   );
 };
