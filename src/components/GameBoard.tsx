@@ -73,6 +73,22 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
       if (gameState.gameStatus !== 'playing' || !gameState.battlefield.player.length || !gameState.battlefield.opponent.length) {
         // Always ensure opponent has exactly 4 cards total (hand + battlefield)
         const totalOpponentCards = gameState.players.opponent.hand.length + gameState.battlefield.opponent.length;
+        if (totalOpponentCards > 4) {
+          // Remove excess cards from hand if we somehow got more than 4
+          setGameState(prev => ({
+            ...prev,
+            players: {
+              ...prev.players,
+              opponent: {
+                ...prev.players.opponent,
+                hand: prev.players.opponent.hand.slice(0, Math.max(0, 4 - prev.battlefield.opponent.length))
+              }
+            },
+            currentTurn: 'player',
+            gameStatus: 'waiting'
+          }));
+          return;
+        }
         if (totalOpponentCards < 4 && gameState.currentTurn === 'opponent') {
           const newCards = getInitialHand(4 - totalOpponentCards).map(card => ({
             ...card,
@@ -435,6 +451,14 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
         {/* Combat Stats Display */}
         <div className="combat-stats-display">
           <div className="combat-stats-title">Combat Statistics</div>
+          <div className="total-cards-info">
+            <div className="player-cards-count">
+              Player Total Cards: {gameState.players.player.hand.length + gameState.battlefield.player.length}
+            </div>
+            <div className="opponent-cards-count">
+              Opponent Total Cards: {gameState.players.opponent.hand.length + gameState.battlefield.opponent.length}
+            </div>
+          </div>
           <div className="combat-stats-content">
             {combatLog.slice(-5).map((entry, index) => (
               <div key={index} className={`combat-log-entry ${entry.type}`}>

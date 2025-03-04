@@ -145,17 +145,6 @@ function App() {
   const handleCardPlay = (card: CardType) => {
     if (gameState.currentTurn !== 'player') return;
 
-    // Check for game over conditions first
-    if (gameState.players.player.hp <= 0 || gameState.players.opponent.hp <= 0) {
-      setGameState(prev => ({
-        ...prev,
-        gameStatus: 'finished',
-        currentTurn: prev.players.player.hp <= 0 ? 'opponent' : 'player',
-        battlefield: { player: [], opponent: [] }
-      }));
-      return;
-    }
-
     setGameState(prevState => {
       // Remove the card from player's hand
       const updatedPlayerHand = prevState.players.player.hand.filter(c => c.id !== card.id);
@@ -163,16 +152,8 @@ function App() {
       // Add the card to the battlefield
       let updatedBattlefield = {
         ...prevState.battlefield,
-        player: [...prevState.battlefield.player, card]
+        player: [card]
       };
-
-      // Calculate if player needs new cards to maintain 4 cards total
-      const totalPlayerCards = updatedPlayerHand.length + updatedBattlefield.player.length;
-      const newPlayerCards = totalPlayerCards < 4 ? 
-        getInitialHand(4 - totalPlayerCards).map(card => ({
-          ...card,
-          maxHp: card.maxHp || card.hp
-        })) : [];
 
       // Update game state after player's move
       const afterPlayerMove: GameState = {
@@ -181,8 +162,9 @@ function App() {
           ...prevState.players,
           player: {
             ...prevState.players.player,
-            hand: [...updatedPlayerHand, ...newPlayerCards]
-          }
+            hand: updatedPlayerHand
+          },
+          opponent: prevState.players.opponent
         },
         battlefield: updatedBattlefield,
         currentTurn: 'opponent',
@@ -192,37 +174,67 @@ function App() {
       // AI opponent's turn
       const gameAI = new GameAI();
       const opponentHand = afterPlayerMove.players.opponent.hand;
-      const playerField = updatedBattlefield.player;
       
       if (opponentHand.length > 0) {
-        const aiCard = gameAI.decideMove(opponentHand, playerField);
-        aiCard.maxHp = aiCard.maxHp || aiCard.hp;
+        const aiCard = gameAI.decideMove(opponentHand, updatedBattlefield.player);
         const updatedOpponentHand = opponentHand.filter(c => c.id !== aiCard.id);
 
+        // Add AI card to battlefield
         updatedBattlefield = {
           ...updatedBattlefield,
-          opponent: [...updatedBattlefield.opponent, aiCard]
+          opponent: [aiCard]
         };
 
-        // Always ensure opponent has exactly 4 cards total
-        const totalOpponentCards = updatedOpponentHand.length + updatedBattlefield.opponent.length;
-        const newOpponentCards = totalOpponentCards < 4 ? getInitialHand(4 - totalOpponentCards).map(card => ({
-          ...card,
-          maxHp: card.maxHp || card.hp
-        })) : [];
+        // Handle combat if there are cards on both sides
+        if (updatedBattlefield.player.length > 0) {
+          const playerCard = updatedBattlefield.player[0];
+
+          // Both cards attack simultaneously
+          const updatedOpponentCard = handleCombat(playerCard, aiCard);
+          const updatedPlayerCard = handleCombat(aiCard, playerCard);
+
+          // Update battlefield with combat results
+          updatedBattlefield = {
+            opponent: updatedOpponentCard.hp > 0 ? [updatedOpponentCard] : [],
+            player: updatedPlayerCard.hp > 0 ? [updatedPlayerCard] : []
+          };
+
+          // Calculate direct damage and energy reduction
+          if (updatedPlayerCard.hp <= 0) {
+            afterPlayerMove.players.player.hp -= Math.max(0, aiCard.attack - playerCard.defense);
+          }
+          if (updatedOpponentCard.hp <= 0) {
+            afterPlayerMove.players.opponent.hp -= Math.max(0, playerCard.attack - aiCard.defense);
+          }
+        }
+
+        // Ensure total cards is exactly 4 for both players
+        const playerTotalCards = updatedPlayerHand.length + updatedBattlefield.player.length;
+        const opponentTotalCards = updatedOpponentHand.length + updatedBattlefield.opponent.length;
+
+        // Only draw new cards if total is less than 4
+        const newPlayerCards = playerTotalCards < 4 ? getInitialHand(4 - playerTotalCards) : [];
+        const newOpponentCards = opponentTotalCards < 4 ? getInitialHand(4 - opponentTotalCards) : [];
+
+        // Ensure hands don't exceed the limit
+        const finalPlayerHand = [...updatedPlayerHand, ...newPlayerCards].slice(0, 4 - updatedBattlefield.player.length);
+        const finalOpponentHand = [...updatedOpponentHand, ...newOpponentCards].slice(0, 4 - updatedBattlefield.opponent.length);
 
         return {
           ...afterPlayerMove,
           players: {
             ...afterPlayerMove.players,
+            player: {
+              ...afterPlayerMove.players.player,
+              hand: finalPlayerHand
+            },
             opponent: {
               ...afterPlayerMove.players.opponent,
-              hand: [...updatedOpponentHand, ...newOpponentCards]
+              hand: finalOpponentHand
             }
           },
           battlefield: updatedBattlefield,
-          currentTurn: 'player',
-          gameStatus: 'playing'
+          currentTurn: 'player'
         };
       }
 
