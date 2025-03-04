@@ -127,9 +127,16 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
             <div className="summary-title">OPPONENT CARDS TOTAL HP</div>
             <div className="summary-value">
               {gameState.players.opponent.hand.reduce((total, card) => total + card.hp, 0)}
+              <div className="hp-bar">
+              <div className="hp-fill" style={{ width: `${(gameState.players.opponent.hp / gameState.opponentMaxHealth) * 100}%` }}>
+                <span>{gameState.players.opponent.hp} HP</span>
+              </div>
+          </div>
             </div>
           </div>
+          
         </div>
+
         <div className="health-summary player-summary">
           <img 
             src={playerInfo.avatar} 
@@ -140,6 +147,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
             <div className="summary-title">PLAYER CARDS TOTAL HP</div>
             <div className="summary-value">
               {gameState.players.player.hand.reduce((total, card) => total + card.hp, 0)}
+              <div className="hp-bar">
+              <div className="hp-fill" style={{ width: `${(gameState.players.player.hp / gameState.playerMaxHealth) * 100}%` }}>
+                <span>{gameState.players.player.hp} HP</span>
+              </div>
+            </div>
             </div>
           </div>
         </div>
