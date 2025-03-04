@@ -160,15 +160,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
       {/* Opponent Area */}
       <div className="player-area opponent">
         <div className="player-profile opponent-profile">
+        <img 
+            src={opponentInfo.avatar} 
+            alt="Opponent" 
+            className="profile-picture"
+          />
           <span className="player-name">{opponentInfo.name}</span>
-        </div>
-        <div className="player-info">
-          <div className="player-name">Opponent</div>
-          <div className="hp-bar">
-            <div className="hp-fill" style={{ width: `${(gameState.players.opponent.hp / gameState.opponentMaxHealth) * 100}%` }}>
-            <span>{gameState.players.opponent.hp} HP</span>
-          </div>
-          </div>
         </div>
         <div className="player-hand opponent-hand">
           {gameState.players.opponent.hand.map((card: CardType) => (
@@ -209,16 +206,14 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
       {/* Player Area */}
       <div className="player-area current-player">
         <div className="player-profile">
+        <img 
+            src={playerInfo.avatar} 
+            alt="Player" 
+            className="profile-picture"
+          />
           <span className="player-name">{playerInfo.name}</span>
         </div>
-        <div className="player-info">
-          <div className="player-name">Player</div>
-          <div className="hp-bar">
-            <div className="hp-fill" style={{ width: `${(gameState.players.player.hp / gameState.playerMaxHealth) * 100}%` }}>
-              <span>{gameState.players.player.hp} HP</span>
-            </div>
-          </div>
-        </div>
+        
         {/* Add this section to render player's hand */}
         <div className="player-hand">
           {gameState.players.player.hand.map((card: CardType) => (
