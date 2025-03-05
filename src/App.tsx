@@ -146,16 +146,13 @@ function App() {
     if (gameState.currentTurn !== 'player') return;
 
     setGameState(prevState => {
-      // Remove the card from player's hand
       const updatedPlayerHand = prevState.players.player.hand.filter(c => c.id !== card.id);
       
-      // Add the card to the battlefield
       let updatedBattlefield = {
         ...prevState.battlefield,
-        player: [card]
+        player: [...prevState.battlefield.player, card]
       };
 
-      // Update game state after player's move
       const afterPlayerMove: GameState = {
         ...prevState,
         players: {
@@ -167,29 +164,26 @@ function App() {
           opponent: prevState.players.opponent
         },
         battlefield: updatedBattlefield,
-        currentTurn: 'opponent',
+        currentTurn: 'opponent' as const,
         gameStatus: 'playing'
       };
 
-      // AI opponent's turn
       const gameAI = new GameAI();
       const opponentHand = afterPlayerMove.players.opponent.hand;
+      const playerField = afterPlayerMove.battlefield.player;
       
       if (opponentHand.length > 0) {
-        const aiCard = gameAI.decideMove(opponentHand, updatedBattlefield.player);
+        const aiCard = gameAI.decideMove(opponentHand, playerField);
         const updatedOpponentHand = opponentHand.filter(c => c.id !== aiCard.id);
 
-        // Add AI card to battlefield
         updatedBattlefield = {
           ...updatedBattlefield,
-          opponent: [aiCard]
+          opponent: [...updatedBattlefield.opponent, aiCard]
         };
 
-        // Handle combat if there are cards on both sides
-        if (updatedBattlefield.player.length > 0) {
-          const playerCard = updatedBattlefield.player[0];
+        if (playerField.length > 0) {
+          const playerCard = playerField[0];
 
-          // Both cards attack simultaneously
           const updatedOpponentCard = handleCombat(playerCard, aiCard);
           const updatedPlayerCard = handleCombat(aiCard, playerCard);
 
@@ -199,42 +193,65 @@ function App() {
             player: updatedPlayerCard.hp > 0 ? [updatedPlayerCard] : []
           };
 
-          // Calculate direct damage and energy reduction
+          // Calculate and apply direct damage if a card is destroyed
           if (updatedPlayerCard.hp <= 0) {
-            afterPlayerMove.players.player.hp -= Math.max(0, aiCard.attack - playerCard.defense);
+            const directDamage = Math.max(0, aiCard.attack - playerCard.defense);
+            afterPlayerMove.players.player.hp = Math.max(0, afterPlayerMove.players.player.hp - directDamage);
           }
           if (updatedOpponentCard.hp <= 0) {
-            afterPlayerMove.players.opponent.hp -= Math.max(0, playerCard.attack - aiCard.defense);
+            const directDamage = Math.max(0, playerCard.attack - aiCard.defense);
+            afterPlayerMove.players.opponent.hp = Math.max(0, afterPlayerMove.players.opponent.hp - directDamage);
           }
+
+          // Clear battlefield if both cards are destroyed
+          if (updatedPlayerCard.hp <= 0 && updatedOpponentCard.hp <= 0) {
+            updatedBattlefield = { player: [], opponent: [] };
+          }
+
+          // Check if either player needs new cards
+          const needsNewCards = updatedOpponentHand.length === 0 || updatedPlayerHand.length === 0;
+        
+          // If either player needs cards, deal new hands to both players
+          const finalPlayerHand = needsNewCards ? getInitialHand(4) : updatedPlayerHand;
+          const finalOpponentHand = needsNewCards ? getInitialHand(4) : updatedOpponentHand;
+
+          // Check if we need to replenish cards
+          const shouldReplenishCards = (updatedBattlefield.player.length === 0 && updatedPlayerHand.length < 4) ||
+                                     (updatedBattlefield.opponent.length === 0 && updatedOpponentHand.length < 4);
+
+          // Get new hands if needed
+          const replenishedPlayerHand = shouldReplenishCards ? getInitialHand(4) : finalPlayerHand;
+          const replenishedOpponentHand = shouldReplenishCards ? getInitialHand(4) : finalOpponentHand;
+
+          return {
+            ...afterPlayerMove,
+            players: {
+              ...afterPlayerMove.players,
+              player: {
+                ...afterPlayerMove.players.player,
+                hand: replenishedPlayerHand
+              },
+              opponent: {
+                ...afterPlayerMove.players.opponent,
+                hand: replenishedOpponentHand
+              }
+            },
+            battlefield: updatedBattlefield,
+            currentTurn: 'player' as const
+          };
         }
-
-        // Ensure total cards is exactly 4 for both players
-        const playerTotalCards = updatedPlayerHand.length + updatedBattlefield.player.length;
-        const opponentTotalCards = updatedOpponentHand.length + updatedBattlefield.opponent.length;
-
-        // Only draw new cards if total is less than 4
-        const newPlayerCards = playerTotalCards < 4 ? getInitialHand(4 - playerTotalCards) : [];
-        const newOpponentCards = opponentTotalCards < 4 ? getInitialHand(4 - opponentTotalCards) : [];
-
-        // Ensure hands don't exceed the limit
-        const finalPlayerHand = [...updatedPlayerHand, ...newPlayerCards].slice(0, 4 - updatedBattlefield.player.length);
-        const finalOpponentHand = [...updatedOpponentHand, ...newOpponentCards].slice(0, 4 - updatedBattlefield.opponent.length);
 
         return {
           ...afterPlayerMove,
           players: {
             ...afterPlayerMove.players,
-            player: {
-              ...afterPlayerMove.players.player,
-              hand: finalPlayerHand
-            },
             opponent: {
               ...afterPlayerMove.players.opponent,
-              hand: finalOpponentHand
+              hand: updatedOpponentHand
             }
           },
           battlefield: updatedBattlefield,
-          currentTurn: 'player'
+          currentTurn: 'player' as const
         };
       }
 

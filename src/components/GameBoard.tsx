@@ -5,6 +5,7 @@ import cardBack from '../assets/ui/card-back.png';
 import '../styles/combat.css';
 import '../styles/player.css';
 import { getInitialHand } from '../data/monsters';
+import GameEndDialog from './GameEndDialog';
 
 // Import all monster images
 import sui from '../assets/monsters/sui.png';
@@ -42,6 +43,33 @@ interface GameBoardProps {
   opponentInfo: { name: string; avatar: string };
 }
 
+// Define the initial game state function
+const getInitialGameState = (): GameState => {
+  return {
+    gameStatus: 'waiting',
+    currentTurn: 'player',
+    battlefield: { player: [], opponent: [] },
+    players: {
+      player: {
+        id: 'player',
+        hand: getInitialHand(4),
+        hp: 100,
+        deck: []
+      },
+      opponent: {
+        id: 'opponent',
+        hand: getInitialHand(4),
+        hp: 100,
+        deck: []
+      }
+    },
+    playerHealth: 100,
+    playerMaxHealth: 100,
+    opponentHealth: 100,
+    opponentMaxHealth: 100
+  };
+};
+
 const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameState, playerInfo, opponentInfo }) => {
   const [attackingCard, setAttackingCard] = useState<string | null>(null);
   const [defendingCard, setDefendingCard] = useState<string | null>(null);
@@ -71,7 +99,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
   useEffect(() => {
     const processCombat = async () => {
       if (gameState.gameStatus !== 'playing' || !gameState.battlefield.player.length || !gameState.battlefield.opponent.length) {
-        // Always ensure opponent has exactly 4 cards total (hand + battlefield)
+        // Ensure opponent has exactly 4 cards total (hand + battlefield)
         const totalOpponentCards = gameState.players.opponent.hand.length + gameState.battlefield.opponent.length;
         if (totalOpponentCards > 4) {
           // Remove excess cards from hand if we somehow got more than 4
@@ -100,6 +128,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
           const selectedCard = gameState.players.opponent.hand[Math.floor(Math.random() * gameState.players.opponent.hand.length)];
           
           if (selectedCard) {
+            addCombatLogEntry(`Opponent plays ${selectedCard.name}`, 'info'); // Log opponent's move
             setGameState(prev => ({
               ...prev,
               players: {
@@ -382,8 +411,20 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
     })
   });
 
+  const handleRestart = () => {
+    setGameState(getInitialGameState());
+  };
+
   return (
     <div className="game-board">
+      {/* Show Game End Dialog if the game is finished */}
+      {gameState.gameStatus === 'finished' && (
+        <GameEndDialog 
+          winner={gameState.currentTurn === 'player' ? 'opponent' : 'player'} 
+          onRestart={handleRestart} 
+        />
+      )}
+
       {/* Kill Counter Display */}
       <div className="kill-counter">
         <div className="kill-stat">
