@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import './App.css';
 import GameBoard from './components/GameBoard';
+import GameOver from './components/GameOver';
+import Dialog from './components/Dialog';
 import { GameState, CardType } from './types/game';
 import { getInitialHand } from './data/monsters';
 import { DndProvider } from 'react-dnd';
@@ -64,6 +66,7 @@ function App() {
 
     let newPlayerHP = gameState.players.player.hp;
     let newOpponentHP = gameState.players.opponent.hp;
+    let dialog = null;
 
     // Update player HP based on damage and show visual feedback
     setGameState(prev => {
@@ -90,7 +93,13 @@ function App() {
 
       // Immediately check for game over conditions
       if (newPlayerHP <= 0) {
-        setTimeout(() => alert('Game Over - Opponent Wins!'), 100);
+        dialog = <Dialog
+          isOpen={true}
+          onClose={() => setGameState(prev => ({ ...prev, gameStatus: 'playing' }))}
+          title="Game Over"
+          message="Better luck next time! The opponent was stronger this time."
+          isVictory={false}
+        />;
         return {
           ...prev,
           players: {
@@ -107,7 +116,13 @@ function App() {
       }
 
       if (newOpponentHP <= 0) {
-        setTimeout(() => alert('Congratulations - You Win!'), 100);
+        dialog = <Dialog
+          isOpen={true}
+          onClose={() => setGameState(prev => ({ ...prev, gameStatus: 'playing' }))}
+          title="Victory!"
+          message="Congratulations! You have won the battle!"
+          isVictory={true}
+        />;
         return {
           ...prev,
           players: {
@@ -316,13 +331,49 @@ function App() {
             </div>
           )}
           
-          <GameBoard
-            gameState={gameState}
-            onCardPlay={handleCardPlay}
-            setGameState={setGameState}
-            playerInfo={playerInfo}
-            opponentInfo={opponentInfo}
-          />
+          {gameState.gameStatus === 'finished' ? (
+            <GameOver
+              isVictory={gameState.players.opponent.hp <= 0}
+              playerHealth={gameState.players.player.hp}
+              opponentHealth={gameState.players.opponent.hp}
+              onPlayAgain={() => {
+                setGameState({
+                  players: {
+                    player: {
+                      id: 'player',
+                      hp: 300,
+                      deck: [],
+                      hand: getInitialHand(4)
+                    },
+                    opponent: {
+                      id: 'opponent',
+                      hp: 300,
+                      deck: [],
+                      hand: getInitialHand(4)
+                    }
+                  },
+                  battlefield: {
+                    player: [],
+                    opponent: []
+                  },
+                  currentTurn: 'player',
+                  gameStatus: 'waiting',
+                  playerHealth: 300,
+                  playerMaxHealth: 300,
+                  opponentHealth: 300,
+                  opponentMaxHealth: 300
+                });
+              }}
+            />
+          ) : (
+            <GameBoard
+              gameState={gameState}
+              onCardPlay={handleCardPlay}
+              setGameState={setGameState}
+              playerInfo={playerInfo}
+              opponentInfo={opponentInfo}
+            />
+          )}
         </div>
       </div>
     </DndProvider>
