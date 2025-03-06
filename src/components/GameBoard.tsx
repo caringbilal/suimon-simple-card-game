@@ -4,10 +4,10 @@ import Card from './Card';
 import cardBack from '../assets/ui/card-back.png';
 import '../styles/combat.css';
 import '../styles/player.css';
-import { getInitialHand } from '../data/monsters';
 import GameEndDialog from './GameEndDialog';
+import { useDrop } from 'react-dnd';
 
-// Import all monster images
+// Monster images (ensure these match your asset paths)
 import sui from '../assets/monsters/sui.png';
 import grum from '../assets/monsters/grum.png';
 import stomp from '../assets/monsters/stomp.png';
@@ -33,7 +33,12 @@ import grow from '../assets/monsters/grow.png';
 import luna from '../assets/monsters/luna.png';
 import floar from '../assets/monsters/floar.png';
 import ecron from '../assets/monsters/ecron.png';
-import { useDrop, ConnectDropTarget } from 'react-dnd';
+
+interface CombatLogEntry {
+  timestamp: number;
+  message: string;
+  type: string;
+}
 
 interface GameBoardProps {
   gameState: GameState;
@@ -41,364 +46,54 @@ interface GameBoardProps {
   setGameState: React.Dispatch<React.SetStateAction<GameState>>;
   playerInfo: { name: string; avatar: string };
   opponentInfo: { name: string; avatar: string };
+  combatLog: CombatLogEntry[];
+  addCombatLogEntry: (message: string, type: string) => void;
 }
 
-// Define the initial game state function
-const getInitialGameState = (): GameState => {
-  return {
-    gameStatus: 'waiting',
-    currentTurn: 'player',
-    battlefield: { player: [], opponent: [] },
-    players: {
-      player: {
-        id: 'player',
-        hand: getInitialHand(4),
-        hp: 100,
-        deck: []
-      },
-      opponent: {
-        id: 'opponent',
-        hand: getInitialHand(4),
-        hp: 100,
-        deck: []
-      }
-    },
-    playerHealth: 100,
-    playerMaxHealth: 100,
-    opponentHealth: 100,
-    opponentMaxHealth: 100
-  };
-};
-
-const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameState, playerInfo, opponentInfo }) => {
+const GameBoard: React.FC<GameBoardProps> = ({
+  gameState,
+  onCardPlay,
+  setGameState,
+  playerInfo,
+  opponentInfo,
+  combatLog,
+  addCombatLogEntry
+}) => {
   const [attackingCard, setAttackingCard] = useState<string | null>(null);
   const [defendingCard, setDefendingCard] = useState<string | null>(null);
-  const [combatLog, setCombatLog] = useState<Array<{ timestamp: number; message: string; type: string }>>([]);
-  const [defeatedCards, setDefeatedCards] = useState<{
-    player: CardType[];
-    opponent: CardType[];
-  }>({ player: [], opponent: [] });
-  const [killCount, setKillCount] = useState<{
-    player: number;
-    opponent: number;
-  }>({ player: 0, opponent: 0 });
+  const [killCount, setKillCount] = useState<{ player: number; opponent: number }>({ player: 0, opponent: 0 });
 
-  // Add combat log entry function
-  const addCombatLogEntry = (message: string, type: string = 'info') => {
-    setCombatLog(prevLog => [
-      ...prevLog,
-      {
-        timestamp: Date.now(),
-        message,
-        type
-      }
-    ]);
-  };
-
-  // Update combat log when cards attack
+  // Trigger attack/defense animations during combat
   useEffect(() => {
-    const processCombat = async () => {
-      if (gameState.gameStatus !== 'playing' || !gameState.battlefield.player.length || !gameState.battlefield.opponent.length) {
-        // Ensure opponent has exactly 4 cards total (hand + battlefield)
-        const totalOpponentCards = gameState.players.opponent.hand.length + gameState.battlefield.opponent.length;
-        if (totalOpponentCards > 4) {
-          // Remove excess cards from hand if we somehow got more than 4
-          setGameState(prev => ({
-            ...prev,
-            players: {
-              ...prev.players,
-              opponent: {
-                ...prev.players.opponent,
-                hand: prev.players.opponent.hand.slice(0, Math.max(0, 4 - prev.battlefield.opponent.length))
-              }
-            },
-            currentTurn: 'player',
-            gameStatus: 'waiting'
-          }));
-          return;
-        }
-        if (totalOpponentCards < 4 && gameState.currentTurn === 'opponent') {
-          const newCards = getInitialHand(4 - totalOpponentCards).map(card => ({
-            ...card,
-            hp: card.maxHp,
-            maxHp: card.maxHp
-          }));
-          
-          // Randomly select a card from opponent's hand to play
-          const selectedCard = gameState.players.opponent.hand[Math.floor(Math.random() * gameState.players.opponent.hand.length)];
-          
-          if (selectedCard) {
-            addCombatLogEntry(`Opponent plays ${selectedCard.name}`, 'info'); // Log opponent's move
-            setGameState(prev => ({
-              ...prev,
-              players: {
-                ...prev.players,
-                opponent: {
-                  ...prev.players.opponent,
-                  hand: [...prev.players.opponent.hand.filter(c => c.id !== selectedCard.id), ...newCards]
-                }
-              },
-              battlefield: {
-                ...prev.battlefield,
-                opponent: [selectedCard]
-              },
-              gameStatus: 'playing'
-            }));
-          } else {
-            setGameState(prev => ({
-              ...prev,
-              players: {
-                ...prev.players,
-                opponent: {
-                  ...prev.players.opponent,
-                  hand: [...prev.players.opponent.hand, ...newCards]
-                }
-              },
-              gameStatus: 'playing'
-            }));
-          }
-        }
-        return;
-      }
-
-      // Rest of the combat logic remains the same
-      // Check if either player has zero energy before combat
-      if (gameState.players.player.hp <= 0) {
-        addCombatLogEntry('Game Over - Opponent Wins!', 'death');
-        setGameState(prev => ({
-          ...prev,
-          gameStatus: 'finished',
-          currentTurn: 'opponent',
-          battlefield: { player: [], opponent: [] }
-        }));
-        return;
-      }
-
-      if (gameState.players.opponent.hp <= 0) {
-        addCombatLogEntry('Game Over - Player Wins!', 'death');
-        setGameState(prev => ({
-          ...prev,
-          gameStatus: 'finished',
-          currentTurn: 'player',
-          battlefield: { player: [], opponent: [] }
-        }));
-        return;
-      }
-
-      // Process combat for each pair of cards
+    if (gameState.battlefield.player.length > 0 && gameState.battlefield.opponent.length > 0) {
       const playerCard = gameState.battlefield.player[0];
       const opponentCard = gameState.battlefield.opponent[0];
-      
-      if (playerCard && opponentCard) {
-        // Ensure minimum damage of 5 to prevent infinite loops
-        const playerDamage = Math.max(5, playerCard.attack - opponentCard.defense);
-        const opponentDamage = Math.max(5, opponentCard.attack - playerCard.defense);
-        
-        // Add combat stats display
-        const combatStats = {
-          player: {
-            name: playerCard.name,
-            attack: playerCard.attack,
-            defense: playerCard.defense,
-            currentHP: playerCard.hp,
-            damageDealt: playerDamage
-          },
-          opponent: {
-            name: opponentCard.name,
-            attack: opponentCard.attack,
-            defense: opponentCard.defense,
-            currentHP: opponentCard.hp,
-            damageDealt: opponentDamage
-          }
-        };
 
-        addCombatLogEntry(`Combat Stats:\nPlayer ${combatStats.player.name}: ATK ${combatStats.player.attack} - DEF ${combatStats.player.defense} - HP ${combatStats.player.currentHP}\nOpponent ${combatStats.opponent.name}: ATK ${combatStats.opponent.attack} - DEF ${combatStats.opponent.defense} - HP ${combatStats.opponent.currentHP}`, 'info');
-        
-        // Player attacks first
-        if (playerDamage > 0) {
-          setAttackingCard(playerCard.id);
-          setDefendingCard(opponentCard.id);
-          addCombatLogEntry(`${playerCard.name} attacks ${opponentCard.name} for ${playerDamage} damage!`, 'attack');
-          
-          const updatedOpponentCard = { 
-            ...opponentCard, 
-            hp: Math.max(0, opponentCard.hp - playerDamage),
-            maxHp: opponentCard.maxHp
-          };
-          
-          if (updatedOpponentCard.hp <= 0) {
-            addCombatLogEntry(`${opponentCard.name} has been defeated!`, 'death');
-            setDefeatedCards(prev => ({
-              ...prev,
-              opponent: [...prev.opponent, opponentCard]
-            }));
-            setKillCount(prev => ({
-              ...prev,
-              player: prev.player + 1
-            }));
-            setGameState(prev => {
-              const newOpponentHP = Math.max(0, prev.players.opponent.hp - playerDamage);
-              if (newOpponentHP <= 0) {
-                addCombatLogEntry('Game Over - Player Wins!', 'death');
-                return {
-                  ...prev,
-                  players: {
-                    ...prev.players,
-                    opponent: {
-                      ...prev.players.opponent,
-                      hp: 0
-                    }
-                  },
-                  battlefield: { player: [], opponent: [] },
-                  currentTurn: 'player',
-                  gameStatus: 'finished'
-                };
-              }
-              
-              const totalOpponentCards = prev.players.opponent.hand.length;
-              const newOpponentCards = getInitialHand(4 - totalOpponentCards).map(card => ({
-                ...card,
-                hp: card.maxHp,
-                maxHp: card.maxHp
-              }));
-              return {
-                ...prev,
-                players: {
-                  ...prev.players,
-                  opponent: {
-                    ...prev.players.opponent,
-                    hp: newOpponentHP,
-                    hand: [...prev.players.opponent.hand, ...newOpponentCards]
-                  }
-                },
-                battlefield: {
-                  ...prev.battlefield,
-                  opponent: []
-                },
-                currentTurn: 'opponent',
-                gameStatus: 'waiting'
-              };
-            });
-            return;
-          }
-          
-          setGameState(prev => ({
-            ...prev,
-            battlefield: {
-              ...prev.battlefield,
-              opponent: [updatedOpponentCard]
-            },
-            gameStatus: 'playing'
-          }));
-          
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          setAttackingCard(null);
-          setDefendingCard(null);
-        }
-        
-        // Opponent attacks second if still alive
-        if (opponentCard.hp > 0) {
-          setAttackingCard(opponentCard.id);
-          setDefendingCard(playerCard.id);
-          
-          if (opponentDamage > 0) {
-            addCombatLogEntry(`${opponentCard.name} attacks ${playerCard.name} for ${opponentDamage} damage!`, 'attack');
-          } else {
-            addCombatLogEntry(`${playerCard.name} blocks ${opponentCard.name}'s attack!`, 'defense');
-          }
-          
-          const updatedPlayerCard = { 
-            ...playerCard, 
-            hp: Math.max(0, playerCard.hp - opponentDamage),
-            maxHp: playerCard.maxHp
-          };
-          
-          if (updatedPlayerCard.hp <= 0) {
-            addCombatLogEntry(`${playerCard.name} has been defeated!`, 'death');
-            setDefeatedCards(prev => ({
-              ...prev,
-              player: [...prev.player, playerCard]
-            }));
-            setKillCount(prev => ({
-              ...prev,
-              opponent: prev.opponent + 1
-            }));
-            setGameState(prev => {
-              const newPlayerHP = Math.max(0, prev.players.player.hp - opponentDamage);
-              if (newPlayerHP <= 0) {
-                addCombatLogEntry('Game Over - Opponent Wins!', 'death');
-                return {
-                  ...prev,
-                  players: {
-                    ...prev.players,
-                    player: {
-                      ...prev.players.player,
-                      hp: 0
-                    }
-                  },
-                  battlefield: { player: [], opponent: [] },
-                  currentTurn: 'opponent',
-                  gameStatus: 'finished'
-                };
-              }
+      setAttackingCard(playerCard.id);
+      setDefendingCard(opponentCard.id);
 
-              // Calculate total cards for player
-              const totalPlayerCards = prev.players.player.hand.length;
-              const newPlayerCards = getInitialHand(4 - totalPlayerCards).map(card => ({
-                ...card,
-                hp: card.maxHp,
-                maxHp: card.maxHp
-              }));
-              return {
-                ...prev,
-                players: {
-                  ...prev.players,
-                  player: {
-                    ...prev.players.player,
-                    hp: newPlayerHP,
-                    hand: [...prev.players.player.hand, ...newPlayerCards]
-                  }
-                },
-                battlefield: {
-                  ...prev.battlefield,
-                  player: []
-                },
-                currentTurn: 'player',
-                gameStatus: 'waiting'
-              };
-            });
-            return;
-          }
-          
-          setGameState(prev => ({
-            ...prev,
-            battlefield: {
-              ...prev.battlefield,
-              player: [updatedPlayerCard]
-            },
-            currentTurn: 'player',
-            gameStatus: 'waiting'
-          }));
-          
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          setAttackingCard(null);
-          setDefendingCard(null);
-        }
-        
-        // If both cards survived, end combat and switch turns
-        // Modify the end of combat to maintain 'playing' status
-        if (playerCard.hp > 0 && opponentCard.hp > 0) {
-          setGameState(prev => ({
-            ...prev,
-            currentTurn: 'player',
-            gameStatus: 'playing'
-          }));
-        }
-      };
-    };
-  
-    processCombat();
-  }, [gameState.battlefield.player, gameState.battlefield.opponent, gameState.gameStatus]);
+      setTimeout(() => {
+        setAttackingCard(opponentCard.id);
+        setDefendingCard(playerCard.id);
+      }, 1000);
+    } else {
+      setAttackingCard(null);
+      setDefendingCard(null);
+    }
+  }, [gameState.battlefield]);
+
+  // Update kill count when cards are defeated
+  useEffect(() => {
+    const playerCard = gameState.battlefield.player[0];
+    const opponentCard = gameState.battlefield.opponent[0];
+
+    if (playerCard && playerCard.hp <= 0) {
+      setKillCount(prev => ({ ...prev, opponent: prev.opponent + 1 }));
+    }
+    if (opponentCard && opponentCard.hp <= 0) {
+      setKillCount(prev => ({ ...prev, player: prev.player + 1 }));
+    }
+  }, [gameState.battlefield]);
 
   const [{ isOver }, dropRef] = useDrop<CardType, void, { isOver: boolean }>({
     accept: 'CARD',
@@ -412,20 +107,32 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
   });
 
   const handleRestart = () => {
-    setGameState(getInitialGameState());
+    setGameState({
+      gameStatus: 'waiting',
+      currentTurn: 'player',
+      battlefield: { player: [], opponent: [] },
+      players: {
+        player: { id: 'player', hand: gameState.players.player.hand, hp: 300, deck: [] },
+        opponent: { id: 'opponent', hand: gameState.players.opponent.hand, hp: 300, deck: [] }
+      },
+      playerHealth: 300,
+      playerMaxHealth: 300,
+      opponentHealth: 300,
+      opponentMaxHealth: 300
+    });
+    setKillCount({ player: 0, opponent: 0 });
   };
 
   return (
     <div className="game-board">
-      {/* Show Game End Dialog if the game is finished */}
       {gameState.gameStatus === 'finished' && (
-        <GameEndDialog 
-          winner={gameState.currentTurn === 'player' ? 'opponent' : 'player'} 
-          onRestart={handleRestart} 
+        <GameEndDialog
+          winner={gameState.players.opponent.hp <= 0 ? 'player' : 'opponent'}
+          onRestart={handleRestart}
         />
       )}
 
-      {/* Kill Counter Display */}
+      {/* Kill Counter */}
       <div className="kill-counter">
         <div className="kill-stat">
           <span className="kill-label">Player Kills:</span>
@@ -437,59 +144,42 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
         </div>
       </div>
 
-      {/* Health Summary Boxes */}
+      {/* Health and Combat Stats */}
       <div className="health-summary-boxes">
-        {/* Opponent's Health Summary */}
         <div className="health-summary opponent-summary">
-          <img 
-            src={opponentInfo.avatar} 
-            alt="Opponent" 
-            className="profile-picture"
-          />
+          <img src={opponentInfo.avatar} alt="Opponent" className="profile-picture" />
           <div className="summary-content">
             <div className="summary-title">OPPONENT CARDS TOTAL HP</div>
             <div className="summary-value">
-              {gameState.battlefield.opponent.reduce((total, card) => total + card.hp, 0) + 
+              {gameState.battlefield.opponent.reduce((total, card) => total + card.hp, 0) +
                gameState.players.opponent.hand.reduce((total, card) => total + card.hp, 0)}
               <div className="hp-bar">
-                <div 
-                  className="hp-fill" 
-                  style={{ 
-                    width: `${(gameState.players.opponent.hp / gameState.opponentMaxHealth) * 100}%`,
-                    transition: 'width 0.5s ease-in-out'
-                  }}
+                <div
+                  className="hp-fill"
+                  style={{ width: `${(gameState.players.opponent.hp / gameState.opponentMaxHealth) * 100}%` }}
                 />
-                <span>{gameState.players.opponent.hp} Energy </span>
+                <span>{gameState.players.opponent.hp} Energy</span>
               </div>
             </div>
           </div>
         </div>
-        {/* Player's Health Summary */}
         <div className="health-summary player-summary">
-          <img 
-            src={playerInfo.avatar} 
-            alt="Player" 
-            className="profile-picture"
-          />
+          <img src={playerInfo.avatar} alt="Player" className="profile-picture" />
           <div className="summary-content">
             <div className="summary-title">PLAYER CARDS TOTAL HP</div>
             <div className="summary-value">
-              {gameState.battlefield.player.reduce((total, card) => total + card.hp, 0) + 
+              {gameState.battlefield.player.reduce((total, card) => total + card.hp, 0) +
                gameState.players.player.hand.reduce((total, card) => total + card.hp, 0)}
               <div className="hp-bar">
-                <div 
-                  className="hp-fill" 
-                  style={{ 
-                    width: `${(gameState.players.player.hp / gameState.playerMaxHealth) * 100}%`,
-                    transition: 'width 0.5s ease-in-out'
-                  }}
+                <div
+                  className="hp-fill"
+                  style={{ width: `${(gameState.players.player.hp / gameState.playerMaxHealth) * 100}%` }}
                 />
-                <span>{gameState.players.player.hp} Energy </span>
+                <span>{gameState.players.player.hp} Energy</span>
               </div>
             </div>
           </div>
         </div>
-        {/* Combat Stats Display */}
         <div className="combat-stats-display">
           <div className="combat-stats-title">Combat Statistics</div>
           <div className="total-cards-info">
@@ -501,6 +191,16 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
             </div>
           </div>
           <div className="combat-stats-content">
+            {gameState.battlefield.player.map(card => (
+              <div key={card.id}>
+                {card.name}: {card.hp}/{card.maxHp} HP, ATK: {card.attack}, DEF: {card.defense}
+              </div>
+            ))}
+            {gameState.battlefield.opponent.map(card => (
+              <div key={card.id}>
+                {card.name}: {card.hp}/{card.maxHp} HP, ATK: {card.attack}, DEF: {card.defense}
+              </div>
+            ))}
             {combatLog.slice(-5).map((entry, index) => (
               <div key={index} className={`combat-log-entry ${entry.type}`}>
                 {entry.message}
@@ -513,11 +213,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
       {/* Opponent Area */}
       <div className={`player-area opponent ${gameState.currentTurn === 'opponent' ? 'active-turn' : ''}`}>
         <div className="player-profile opponent-profile">
-          <img 
-            src={opponentInfo.avatar} 
-            alt="Opponent" 
-            className="profile-picture"
-          />
+          <img src={opponentInfo.avatar} alt="Opponent" className="profile-picture" />
           <span className="player-name">
             {opponentInfo.name}
             <span className={`turn-indicator ${gameState.currentTurn === 'opponent' ? 'active' : 'waiting'}`}>
@@ -538,9 +234,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
       <div className="battlefield">
         <div className="opponent-field">
           {gameState.battlefield.opponent.map((card: CardType) => (
-            <Card 
-              key={card.id} 
-              card={card} 
+            <Card
+              key={card.id}
+              card={card}
               isAttacking={attackingCard === card.id}
               isDefending={defendingCard === card.id}
               onAnimationEnd={() => {
@@ -550,14 +246,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
             />
           ))}
         </div>
-        <div 
-          ref={dropRef as unknown as React.RefObject<HTMLDivElement>}
-          className={`player-field ${isOver ? 'field-highlight' : ''}`}
-        >
+        <div ref={dropRef as unknown as React.RefObject<HTMLDivElement>} className={`player-field ${isOver ? 'field-highlight' : ''}`}>
           {gameState.battlefield.player.map((card: CardType) => (
-            <Card 
-              key={card.id} 
-              card={card} 
+            <Card
+              key={card.id}
+              card={card}
               isAttacking={attackingCard === card.id}
               isDefending={defendingCard === card.id}
               onAnimationEnd={() => {
@@ -572,32 +265,20 @@ const GameBoard: React.FC<GameBoardProps> = ({ gameState, onCardPlay, setGameSta
       {/* Player Area */}
       <div className={`player-area current-player ${gameState.currentTurn === 'player' ? 'active-turn' : ''}`}>
         <div className="player-profile">
-          <img 
-            src={playerInfo.avatar} 
-            alt="Player" 
-            className="profile-picture"
-          />
+          <img src={playerInfo.avatar} alt="Player" className="profile-picture" />
           <span className="player-name">
             {playerInfo.name}
-            <span className={`turn-indicator ${gameState.currentTurn === 'player' ? 'active' : 'waiting'}`}>
-              {gameState.currentTurn === 'player' ? 'Player Turn' : 'Please Wait...'}
+            <span className={`turn-indicator ${gameState.currentTurn === 'player' && gameState.battlefield.player.length === 0 ? 'active' : 'waiting'}`}>
+              {gameState.currentTurn === 'player' && gameState.battlefield.player.length === 0 ? 'Your Turn' : 'Please Wait...'}
             </span>
           </span>
         </div>
-        
-        {/* Add this section to render player's hand */}
         <div className="player-hand">
           {gameState.players.player.hand.map((card: CardType) => (
-            <Card 
-              key={card.id} 
-              card={card} 
-              onClick={() => onCardPlay(card)}
-            />
+            <Card key={card.id} card={card} onClick={() => onCardPlay(card)} />
           ))}
         </div>
       </div>
-
-      
     </div>
   );
 };

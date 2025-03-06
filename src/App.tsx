@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import GameBoard from './components/GameBoard';
 import GameOver from './components/GameOver';
@@ -21,6 +21,12 @@ const opponentInfo = {
   avatar: AIPlayerProfile,
 };
 
+interface CombatLogEntry {
+  timestamp: number;
+  message: string;
+  type: string;
+}
+
 function App() {
   const [gameState, setGameState] = useState<GameState>({
     players: {
@@ -30,7 +36,7 @@ function App() {
         deck: [],
         hand: getInitialHand(4).map(card => ({
           ...card,
-          maxHp: card.maxHp || card.hp // Ensure maxHp is set
+          maxHp: card.maxHp || card.hp
         }))
       },
       opponent: {
@@ -39,7 +45,7 @@ function App() {
         deck: [],
         hand: getInitialHand(4).map(card => ({
           ...card,
-          maxHp: card.maxHp || card.hp // Ensure maxHp is set
+          maxHp: card.maxHp || card.hp
         }))
       }
     },
@@ -56,221 +62,112 @@ function App() {
   });
 
   const [showInstructions, setShowInstructions] = useState(false);
+  const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([]);
 
-  const handleCombat = (attackingCard: CardType, defendingCard: CardType) => {
-    const damage = Math.max(0, attackingCard.attack - defendingCard.defense);
-    const updatedCard = {
-      ...defendingCard,
-      hp: Math.max(0, defendingCard.hp - damage)
-    };
-
-    let newPlayerHP = gameState.players.player.hp;
-    let newOpponentHP = gameState.players.opponent.hp;
-    let dialog = null;
-
-    // Update player HP based on damage and show visual feedback
-    setGameState(prev => {
-      const playerCard = prev.battlefield.player[0];
-      const opponentCard = prev.battlefield.opponent[0];
-      newPlayerHP = Math.max(0, prev.players.player.hp - 
-        (playerCard && defendingCard.id === playerCard.id ? damage : 0));
-      newOpponentHP = Math.max(0, prev.players.opponent.hp - 
-        (opponentCard && defendingCard.id === opponentCard.id ? damage : 0));
-
-      // Add visual feedback for HP changes
-      const playerHPBar = document.querySelector('.player-area .hp-fill') as HTMLElement;
-      const opponentHPBar = document.querySelector('.opponent-area .hp-fill') as HTMLElement;
-
-      if (playerHPBar && newPlayerHP < prev.players.player.hp) {
-        playerHPBar.classList.add('damage');
-        setTimeout(() => playerHPBar.classList.remove('damage'), 500);
-      }
-
-      if (opponentHPBar && newOpponentHP < prev.players.opponent.hp) {
-        opponentHPBar.classList.add('damage');
-        setTimeout(() => opponentHPBar.classList.remove('damage'), 500);
-      }
-
-      // Immediately check for game over conditions
-      if (newPlayerHP <= 0) {
-        dialog = <Dialog
-          isOpen={true}
-          onClose={() => setGameState(prev => ({ ...prev, gameStatus: 'playing' }))}
-          title="Game Over"
-          message="Better luck next time! The opponent was stronger this time."
-          isVictory={false}
-        />;
-        return {
-          ...prev,
-          players: {
-            ...prev.players,
-            player: {
-              ...prev.players.player,
-              hp: 0
-            }
-          },
-          gameStatus: 'finished',
-          currentTurn: 'opponent',
-          battlefield: { player: [], opponent: [] }
-        };
-      }
-
-      if (newOpponentHP <= 0) {
-        dialog = <Dialog
-          isOpen={true}
-          onClose={() => setGameState(prev => ({ ...prev, gameStatus: 'playing' }))}
-          title="Victory!"
-          message="Congratulations! You have won the battle!"
-          isVictory={true}
-        />;
-        return {
-          ...prev,
-          players: {
-            ...prev.players,
-            opponent: {
-              ...prev.players.opponent,
-              hp: 0
-            }
-          },
-          gameStatus: 'finished',
-          currentTurn: 'player',
-          battlefield: { player: [], opponent: [] }
-        };
-      }
-
-      return {
-        ...prev,
-        players: {
-          ...prev.players,
-          player: {
-            ...prev.players.player,
-            hp: newPlayerHP
-          },
-          opponent: {
-            ...prev.players.opponent,
-            hp: newOpponentHP
-          }
-        }
-      };
-    });
-
-    return updatedCard;
+  const addCombatLogEntry = (message: string, type: string = 'info') => {
+    setCombatLog(prevLog => [
+      ...prevLog,
+      { timestamp: Date.now(), message, type }
+    ]);
   };
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setGameState(prevState => {
+        if (
+          prevState.battlefield.player.length > 0 &&
+          prevState.battlefield.opponent.length > 0 &&
+          prevState.gameStatus === 'playing'
+        ) {
+          const playerCard = prevState.battlefield.player[0];
+          const opponentCard = prevState.battlefield.opponent[0];
+
+          const playerDamage = Math.max(1, playerCard.attack - opponentCard.defense);
+          const opponentDamage = Math.max(1, opponentCard.attack - playerCard.defense);
+
+          addCombatLogEntry(`${playerCard.name} deals ${playerDamage} damage to ${opponentCard.name}`, 'attack');
+          addCombatLogEntry(`${opponentCard.name} deals ${opponentDamage} damage to ${playerCard.name}`, 'attack');
+
+          const updatedPlayerCard = { ...playerCard, hp: playerCard.hp - opponentDamage };
+          const updatedOpponentCard = { ...opponentCard, hp: opponentCard.hp - playerDamage };
+          let updatedBattlefield = { ...prevState.battlefield };
+
+          if (updatedPlayerCard.hp <= 0) {
+            addCombatLogEntry(`${playerCard.name} has been defeated!`, 'death');
+            updatedBattlefield.player = [];
+            const newPlayerHp = Math.max(0, prevState.players.player.hp - playerDamage);
+            if (newPlayerHp <= 0) {
+              return { ...prevState, gameStatus: 'finished', players: { ...prevState.players, player: { ...prevState.players.player, hp: newPlayerHp } } };
+            }
+          } else {
+            updatedBattlefield.player = [updatedPlayerCard];
+          }
+
+          if (updatedOpponentCard.hp <= 0) {
+            addCombatLogEntry(`${opponentCard.name} has been defeated!`, 'death');
+            updatedBattlefield.opponent = [];
+            const newOpponentHp = Math.max(0, prevState.players.opponent.hp - opponentDamage);
+            if (newOpponentHp <= 0) {
+              return { ...prevState, gameStatus: 'finished', players: { ...prevState.players, opponent: { ...prevState.players.opponent, hp: newOpponentHp } } };
+            }
+          } else {
+            updatedBattlefield.opponent = [updatedOpponentCard];
+          }
+
+          return {
+            ...prevState,
+            battlefield: updatedBattlefield,
+            players: {
+              ...prevState.players,
+              player: { ...prevState.players.player, hp: updatedPlayerCard.hp <= 0 ? Math.max(0, prevState.players.player.hp - playerDamage) : prevState.players.player.hp },
+              opponent: { ...prevState.players.opponent, hp: updatedOpponentCard.hp <= 0 ? Math.max(0, prevState.players.opponent.hp - opponentDamage) : prevState.players.opponent.hp }
+            }
+          };
+        }
+        return prevState;
+      });
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const handleCardPlay = (card: CardType) => {
-    if (gameState.currentTurn !== 'player') return;
+    if (gameState.currentTurn !== 'player' || gameState.battlefield.player.length > 0) return;
 
     setGameState(prevState => {
       const updatedPlayerHand = prevState.players.player.hand.filter(c => c.id !== card.id);
-      
-      let updatedBattlefield = {
-        ...prevState.battlefield,
-        player: [...prevState.battlefield.player, card]
-      };
-
-      const afterPlayerMove: GameState = {
-        ...prevState,
-        players: {
-          ...prevState.players,
-          player: {
-            ...prevState.players.player,
-            hand: updatedPlayerHand
-          },
-          opponent: prevState.players.opponent
-        },
-        battlefield: updatedBattlefield,
-        currentTurn: 'opponent' as const,
-        gameStatus: 'playing'
-      };
+      const updatedPlayerBattlefield = [card];
 
       const gameAI = new GameAI();
-      const opponentHand = afterPlayerMove.players.opponent.hand;
-      const playerField = afterPlayerMove.battlefield.player;
-      
-      if (opponentHand.length > 0) {
-        const aiCard = gameAI.decideMove(opponentHand, playerField);
-        const updatedOpponentHand = opponentHand.filter(c => c.id !== aiCard.id);
+      const opponentHand = prevState.players.opponent.hand;
+      const aiCard = gameAI.decideMove(opponentHand, updatedPlayerBattlefield);
+      const updatedOpponentHand = opponentHand.filter(c => c.id !== aiCard.id);
+      let updatedBattlefield = {
+        player: updatedPlayerBattlefield,
+        opponent: [aiCard]
+      };
 
-        updatedBattlefield = {
-          ...updatedBattlefield,
-          opponent: [...updatedBattlefield.opponent, aiCard]
-        };
+      const playerTotal = updatedBattlefield.player.length + updatedPlayerHand.length;
+      const opponentTotal = updatedBattlefield.opponent.length + updatedOpponentHand.length;
+      const playerCardsToDraw = Math.max(0, 4 - playerTotal);
+      const opponentCardsToDraw = Math.max(0, 4 - opponentTotal);
 
-        if (playerField.length > 0) {
-          const playerCard = playerField[0];
+      const newPlayerCards = getInitialHand(playerCardsToDraw);
+      const newOpponentCards = getInitialHand(opponentCardsToDraw);
 
-          const updatedOpponentCard = handleCombat(playerCard, aiCard);
-          const updatedPlayerCard = handleCombat(aiCard, playerCard);
+      const finalPlayerHand = [...updatedPlayerHand, ...newPlayerCards];
+      const finalOpponentHand = [...updatedOpponentHand, ...newOpponentCards];
 
-          // Update battlefield with combat results
-          updatedBattlefield = {
-            opponent: updatedOpponentCard.hp > 0 ? [updatedOpponentCard] : [],
-            player: updatedPlayerCard.hp > 0 ? [updatedPlayerCard] : []
-          };
-
-          // Calculate and apply direct damage if a card is destroyed
-          if (updatedPlayerCard.hp <= 0) {
-            const directDamage = Math.max(0, aiCard.attack - playerCard.defense);
-            afterPlayerMove.players.player.hp = Math.max(0, afterPlayerMove.players.player.hp - directDamage);
-          }
-          if (updatedOpponentCard.hp <= 0) {
-            const directDamage = Math.max(0, playerCard.attack - aiCard.defense);
-            afterPlayerMove.players.opponent.hp = Math.max(0, afterPlayerMove.players.opponent.hp - directDamage);
-          }
-
-          // Clear battlefield if both cards are destroyed
-          if (updatedPlayerCard.hp <= 0 && updatedOpponentCard.hp <= 0) {
-            updatedBattlefield = { player: [], opponent: [] };
-          }
-
-          // Check if either player needs new cards
-          const needsNewCards = updatedOpponentHand.length === 0 || updatedPlayerHand.length === 0;
-        
-          // If either player needs cards, deal new hands to both players
-          const finalPlayerHand = needsNewCards ? getInitialHand(4) : updatedPlayerHand;
-          const finalOpponentHand = needsNewCards ? getInitialHand(4) : updatedOpponentHand;
-
-          // Check if we need to replenish cards
-          const shouldReplenishCards = (updatedBattlefield.player.length === 0 && updatedPlayerHand.length < 4) ||
-                                     (updatedBattlefield.opponent.length === 0 && updatedOpponentHand.length < 4);
-
-          // Get new hands if needed
-          const replenishedPlayerHand = shouldReplenishCards ? getInitialHand(4) : finalPlayerHand;
-          const replenishedOpponentHand = shouldReplenishCards ? getInitialHand(4) : finalOpponentHand;
-
-          return {
-            ...afterPlayerMove,
-            players: {
-              ...afterPlayerMove.players,
-              player: {
-                ...afterPlayerMove.players.player,
-                hand: replenishedPlayerHand
-              },
-              opponent: {
-                ...afterPlayerMove.players.opponent,
-                hand: replenishedOpponentHand
-              }
-            },
-            battlefield: updatedBattlefield,
-            currentTurn: 'player' as const
-          };
-        }
-
-        return {
-          ...afterPlayerMove,
-          players: {
-            ...afterPlayerMove.players,
-            opponent: {
-              ...afterPlayerMove.players.opponent,
-              hand: updatedOpponentHand
-            }
-          },
-          battlefield: updatedBattlefield,
-          currentTurn: 'player' as const
-        };
-      }
-
-      return afterPlayerMove;
+      return {
+        ...prevState,
+        players: {
+          player: { ...prevState.players.player, hand: finalPlayerHand },
+          opponent: { ...prevState.players.opponent, hand: finalOpponentHand }
+        },
+        battlefield: updatedBattlefield,
+        currentTurn: 'player',
+        gameStatus: 'playing'
+      };
     });
   };
 
@@ -298,18 +195,18 @@ function App() {
                   <h3>Card Combat System</h3>
                   <ul>
                     <li>Each player starts with 300 HP and 4 cards</li>
-                    <li>Players take turns playing one card to the battlefield</li>
-                    <li>When both players have cards on the battlefield, they automatically battle:</li>
-                    <li>- Damage dealt = Attacker's Attack - Defender's Defense</li>
-                    <li>- Cards battle simultaneously, damaging each other</li>
-                    <li>- When a card's HP reaches 0, it's removed and its owner takes direct damage</li>
+                    <li>Players play one card at a time to the battlefield</li>
+                    <li>Cards fight automatically until one is defeated:</li>
+                    <li>- Damage dealt = Attacker's Attack - Defender's Defense (minimum 1)</li>
+                    <li>- Cards battle every few seconds</li>
+                    <li>- When a card's HP reaches 0, it's removed and its owner takes damage</li>
                   </ul>
                 </div>
                 <div className="instruction-section">
                   <h3>Card Management</h3>
                   <ul>
-                    <li>Players always maintain 4 cards total (hand + battlefield combined)</li>
-                    <li>New cards are automatically drawn when needed</li>
+                    <li>Players maintain 4 cards total (hand + battlefield)</li>
+                    <li>New cards are drawn automatically when needed</li>
                     <li>Each card shows its current HP percentage and stats</li>
                   </ul>
                 </div>
@@ -317,8 +214,8 @@ function App() {
                   <h3>Winning the Game</h3>
                   <ul>
                     <li>Reduce your opponent's HP to 0 to win</li>
-                    <li>Strategic card placement is key - consider Attack vs Defense stats</li>
-                    <li>Protect your HP by keeping strong defenders on the field</li>
+                    <li>Strategic card placement is key - balance Attack and Defense</li>
+                    <li>Protect your HP with strong defenders</li>
                   </ul>
                 </div>
                 <button 
@@ -363,6 +260,7 @@ function App() {
                   opponentHealth: 300,
                   opponentMaxHealth: 300
                 });
+                setCombatLog([]);
               }}
             />
           ) : (
@@ -372,6 +270,8 @@ function App() {
               setGameState={setGameState}
               playerInfo={playerInfo}
               opponentInfo={opponentInfo}
+              combatLog={combatLog}
+              addCombatLogEntry={addCombatLogEntry}
             />
           )}
         </div>
