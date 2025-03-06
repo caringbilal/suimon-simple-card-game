@@ -59,18 +59,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
 
     // Update game state
     setGameState((prevState) => {
-      let updatedPlayerHP = prevState.players.player.hp;
-      let updatedOpponentHP = prevState.players.opponent.hp;
-
-      if (playerCard.hp <= 0) {
-        updatedPlayerHP = Math.max(0, updatedPlayerHP - 50); // Player loses 50 HP when their card is defeated
-        addCombatLogEntry(`Player loses 50 HP due to card defeat`, 'hp');
-      }
-      if (opponentCard.hp <= 0) {
-        updatedOpponentHP = Math.max(0, updatedOpponentHP - 50); // Opponent loses 50 HP when their card is defeated
-        addCombatLogEntry(`Opponent loses 50 HP due to card defeat`, 'hp');
-      }
-
       return {
         ...prevState,
         players: {
@@ -78,12 +66,10 @@ const GameBoard: React.FC<GameBoardProps> = ({
           player: {
             ...prevState.players.player,
             energy: prevState.players.player.energy - playerEnergyLoss,
-            hp: updatedPlayerHP,
           },
           opponent: {
             ...prevState.players.opponent,
             energy: prevState.players.opponent.energy - opponentEnergyLoss,
-            hp: updatedOpponentHP,
           },
         },
         battlefield: {
@@ -148,14 +134,12 @@ const GameBoard: React.FC<GameBoardProps> = ({
         player: {
           id: "player",
           hand: gameState.players.player.hand, // Or reset to initial hand if desired
-          hp: 300,
           deck: [],
           energy: 300
         },
         opponent: {
           id: "opponent",
           hand: gameState.players.opponent.hand, // Or reset to initial hand if desired
-          hp: 300,
           deck: [],
           energy: 300
         }
@@ -169,7 +153,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
     <div className="game-board">
       {gameState.gameStatus === 'finished' && (
         <GameEndDialog
-          winner={gameState.players.opponent.hp <= 0 ? 'player' : 'opponent'}
+          winner={gameState.players.opponent.energy <= 0 ? 'player' : 'opponent'}
           onRestart={handleRestart}
         />
       )}
@@ -196,9 +180,9 @@ const GameBoard: React.FC<GameBoardProps> = ({
               <div className="hp-bar">
                 <div
                   className="hp-fill"
-                  style={{ width: `${(gameState.players.opponent.hp / gameState.opponentMaxHealth) * 100}%` }}
+                  style={{ width: `${(gameState.players.opponent.energy / gameState.opponentMaxHealth) * 100}%` }}
                 />
-                <span>{gameState.players.opponent.hp} Energy</span>
+                <span>{gameState.players.opponent.energy} Energy</span>
               </div>
             </div>
           </div>
@@ -213,9 +197,9 @@ const GameBoard: React.FC<GameBoardProps> = ({
               <div className="hp-bar">
                 <div
                   className="hp-fill"
-                  style={{ width: `${(gameState.players.player.hp / gameState.playerMaxHealth) * 100}%` }}
+                  style={{ width: `${(gameState.players.player.energy / gameState.playerMaxHealth) * 100}%` }}
                 />
-                <span>{gameState.players.player.hp} Energy</span>
+                <span>{gameState.players.player.energy} Energy</span>
               </div>
             </div>
           </div>

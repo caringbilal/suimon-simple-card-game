@@ -12,7 +12,7 @@ export interface CardType {
 // Player interface
 export interface Player {
   id: string;
-  hp: number;
+  //hp: number;
   energy: number;
   deck: CardType[];
   hand: CardType[];
