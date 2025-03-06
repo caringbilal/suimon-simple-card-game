@@ -5,7 +5,7 @@ export interface CardType {
   attack: number;
   defense: number;
   hp: number;
-  maxHp: number;  // Add this line
+  maxHp: number;
   imageUrl: string;
 }
 
@@ -13,6 +13,7 @@ export interface CardType {
 export interface Player {
   id: string;
   hp: number;
+  energy: number;
   deck: CardType[];
   hand: CardType[];
 }
@@ -20,7 +21,8 @@ export interface Player {
 // Single GameState interface with proper types
 export interface GameState {
   players: {
-    [key: string]: Player;
+    player: Player;
+    opponent: Player;
   };
   battlefield: {
     player: CardType[];
@@ -28,8 +30,6 @@ export interface GameState {
   };
   currentTurn: 'player' | 'opponent';
   gameStatus: 'waiting' | 'playing' | 'finished';
-  playerHealth: number;
   playerMaxHealth: number;
-  opponentHealth: number;
   opponentMaxHealth: number;
 }

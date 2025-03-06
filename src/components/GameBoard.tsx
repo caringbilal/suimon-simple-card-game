@@ -7,33 +7,6 @@ import '../styles/player.css';
 import GameEndDialog from './GameEndDialog';
 import { useDrop } from 'react-dnd';
 
-// Monster images (unchanged)
-import sui from '../assets/monsters/sui.png';
-import grum from '../assets/monsters/grum.png';
-import stomp from '../assets/monsters/stomp.png';
-import blaze from '../assets/monsters/blaze.png';
-import brocco from '../assets/monsters/brocco.png';
-import yeti from '../assets/monsters/yeti.png';
-import nubb from '../assets/monsters/nubb.png';
-import nom from '../assets/monsters/nom.png';
-import cyclo from '../assets/monsters/cyclo.png';
-import glint from '../assets/monsters/glint.png';
-import fluff from '../assets/monsters/fluff.png';
-import captainboo from '../assets/monsters/captainboo.png';
-import momo from '../assets/monsters/momo.png';
-import slippy from '../assets/monsters/slippy.png';
-import whirl from '../assets/monsters/whirl.png';
-import twispy from '../assets/monsters/twispy.png';
-import pico from '../assets/monsters/pico.png';
-import tuga from '../assets/monsters/tuga.png';
-import kai from '../assets/monsters/kai.png';
-import ruk from '../assets/monsters/ruk.png';
-import pyro from '../assets/monsters/pyro.png';
-import grow from '../assets/monsters/grow.png';
-import luna from '../assets/monsters/luna.png';
-import floar from '../assets/monsters/floar.png';
-import ecron from '../assets/monsters/ecron.png';
-
 interface CombatLogEntry {
   timestamp: number;
   message: string;
@@ -64,7 +37,79 @@ const GameBoard: React.FC<GameBoardProps> = ({
   const [attackingCard, setAttackingCard] = useState<string | null>(null);
   const [defendingCard, setDefendingCard] = useState<string | null>(null);
 
-  // Trigger attack/defense animations during combat
+  // Combat logic: Handle the fight between player and opponent cards
+  const handleCombat = () => {
+    const playerCard = gameState.battlefield.player[0];
+    const opponentCard = gameState.battlefield.opponent[0];
+
+    if (!playerCard || !opponentCard) return;
+
+    // Calculate damage (minimum 1 damage)
+    const playerDamage = Math.max(1, playerCard.attack - opponentCard.defense);
+    const opponentDamage = Math.max(1, opponentCard.attack - playerCard.defense);
+
+    // Update card HP
+    playerCard.hp -= opponentDamage;
+    opponentCard.hp -= playerDamage;
+
+    // Proportional energy loss (e.g., 5 energy per damage point)
+    const energyLossFactor = 5;
+    const playerEnergyLoss = Math.min(opponentDamage * energyLossFactor, gameState.players.player.energy);
+    const opponentEnergyLoss = Math.min(playerDamage * energyLossFactor, gameState.players.opponent.energy);
+
+    // Update game state
+    setGameState((prevState) => {
+      let updatedPlayerHP = prevState.players.player.hp;
+      let updatedOpponentHP = prevState.players.opponent.hp;
+
+      if (playerCard.hp <= 0) {
+        updatedPlayerHP = Math.max(0, updatedPlayerHP - 50); // Player loses 50 HP when their card is defeated
+        addCombatLogEntry(`Player loses 50 HP due to card defeat`, 'hp');
+      }
+      if (opponentCard.hp <= 0) {
+        updatedOpponentHP = Math.max(0, updatedOpponentHP - 50); // Opponent loses 50 HP when their card is defeated
+        addCombatLogEntry(`Opponent loses 50 HP due to card defeat`, 'hp');
+      }
+
+      return {
+        ...prevState,
+        players: {
+          ...prevState.players,
+          player: {
+            ...prevState.players.player,
+            energy: prevState.players.player.energy - playerEnergyLoss,
+            hp: updatedPlayerHP,
+          },
+          opponent: {
+            ...prevState.players.opponent,
+            energy: prevState.players.opponent.energy - opponentEnergyLoss,
+            hp: updatedOpponentHP,
+          },
+        },
+        battlefield: {
+          player: playerCard.hp > 0 ? [playerCard] : [],
+          opponent: opponentCard.hp > 0 ? [opponentCard] : [],
+        },
+      };
+    });
+
+    // Log energy changes
+    addCombatLogEntry(`Player loses ${playerEnergyLoss} energy`, 'energy');
+    addCombatLogEntry(`Opponent loses ${opponentEnergyLoss} energy`, 'energy');
+  };
+
+  // Fight interval set to 500ms for testing
+  useEffect(() => {
+    const fightInterval = setInterval(() => {
+      if (gameState.battlefield.player.length > 0 && gameState.battlefield.opponent.length > 0) {
+        handleCombat();
+      }
+    }, 500); // 0.5 seconds for testing (change to 2000 for normal gameplay)
+
+    return () => clearInterval(fightInterval);
+  }, [gameState]);
+
+  // Animation logic for attacking and defending cards
   useEffect(() => {
     if (gameState.battlefield.player.length > 0 && gameState.battlefield.opponent.length > 0) {
       const playerCard = gameState.battlefield.player[0];
@@ -96,16 +141,26 @@ const GameBoard: React.FC<GameBoardProps> = ({
 
   const handleRestart = () => {
     setGameState({
-      gameStatus: 'waiting',
-      currentTurn: 'player',
+      gameStatus: "waiting",
+      currentTurn: "player",
       battlefield: { player: [], opponent: [] },
       players: {
-        player: { id: 'player', hand: gameState.players.player.hand, hp: 300, deck: [] },
-        opponent: { id: 'opponent', hand: gameState.players.opponent.hand, hp: 300, deck: [] }
+        player: {
+          id: "player",
+          hand: gameState.players.player.hand, // Or reset to initial hand if desired
+          hp: 300,
+          deck: [],
+          energy: 300
+        },
+        opponent: {
+          id: "opponent",
+          hand: gameState.players.opponent.hand, // Or reset to initial hand if desired
+          hp: 300,
+          deck: [],
+          energy: 300
+        }
       },
-      playerHealth: 300,
       playerMaxHealth: 300,
-      opponentHealth: 300,
       opponentMaxHealth: 300
     });
   };
@@ -119,7 +174,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
         />
       )}
 
-      {/* Kill Counter */}
       <div className="kill-counter">
         <div className="kill-stat">
           <span className="kill-label">Player Kills:</span>
@@ -131,7 +185,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
         </div>
       </div>
 
-      {/* Health and Combat Stats */}
       <div className="health-summary-boxes">
         <div className="health-summary opponent-summary">
           <img src={opponentInfo.avatar} alt="Opponent" className="profile-picture" />
@@ -187,7 +240,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
         </div>
       </div>
 
-      {/* Opponent Area */}
       <div className={`player-area opponent ${gameState.currentTurn === 'opponent' ? 'active-turn' : ''}`}>
         <div className="player-profile opponent-profile">
           <img src={opponentInfo.avatar} alt="Opponent" className="profile-picture" />
@@ -207,7 +259,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
         </div>
       </div>
 
-      {/* Battlefield */}
       <div className="battlefield">
         <div className="opponent-field">
           {gameState.battlefield.opponent.map((card: CardType) => (
@@ -239,7 +290,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
         </div>
       </div>
 
-      {/* Player Area */}
       <div className={`player-area current-player ${gameState.currentTurn === 'player' ? 'active-turn' : ''}`}>
         <div className="player-profile">
           <img src={playerInfo.avatar} alt="Player" className="profile-picture" />

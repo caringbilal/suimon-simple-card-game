@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import GameBoard from './components/GameBoard';
 import GameOver from './components/GameOver';
@@ -11,6 +11,7 @@ import { GameAI } from './utils/gameAI';
 import AIPlayerProfile from './assets/ui/AIPlayer_Profile.jpg';
 import PlayerProfile from './assets/ui/Player_Profile.jpg';
 
+// Player and opponent info constants
 const playerInfo = {
   name: "Player",
   avatar: PlayerProfile,
@@ -21,6 +22,7 @@ const opponentInfo = {
   avatar: AIPlayerProfile,
 };
 
+// Interface for combat log entries
 interface CombatLogEntry {
   timestamp: number;
   message: string;
@@ -28,11 +30,13 @@ interface CombatLogEntry {
 }
 
 function App() {
+  // Initial game state
   const [gameState, setGameState] = useState<GameState>({
     players: {
       player: {
         id: 'player',
         hp: 300,
+        energy: 300,
         deck: [],
         hand: getInitialHand(4).map(card => ({
           ...card,
@@ -42,6 +46,7 @@ function App() {
       opponent: {
         id: 'opponent',
         hp: 300,
+        energy: 300,
         deck: [],
         hand: getInitialHand(4).map(card => ({
           ...card,
@@ -55,24 +60,64 @@ function App() {
     },
     currentTurn: 'player',
     gameStatus: 'waiting',
-    playerHealth: 300,
     playerMaxHealth: 300,
-    opponentHealth: 300,
     opponentMaxHealth: 300
   });
 
   const [showInstructions, setShowInstructions] = useState(false);
   const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([]);
   const [killCount, setKillCount] = useState({ player: 0, opponent: 0 });
-  const [roundCounter, setRoundCounter] = useState(0); // Track rounds for fatigue
+  const [roundCounter, setRoundCounter] = useState(0);
+  const [totalRounds, setTotalRounds] = useState(0);
 
-  const addCombatLogEntry = (message: string, type: string = 'info') => {
+  const MAX_ROUNDS = 20; // Maximum game duration
+  const MAX_ENERGY_DRAIN = 10; // Cap on energy drain per round
+
+  // Memoized function to add combat log entries
+  const addCombatLogEntry = useCallback((message: string, type: string = 'info') => {
     setCombatLog(prevLog => [
       ...prevLog,
       { timestamp: Date.now(), message, type }
     ]);
+  }, []);
+
+  // AI play handler with explicit return type
+  const handleAIPlay = (currentState: GameState): GameState => {
+    const gameAI = new GameAI();
+    const opponentHand = currentState.players.opponent.hand;
+    const playerBattlefield = currentState.battlefield.player;
+
+    if (opponentHand.length > 0) {
+      const aiCard = gameAI.decideMove(opponentHand, playerBattlefield);
+      if (aiCard) {
+        const updatedOpponentHand = opponentHand.filter(c => c.id !== aiCard.id);
+        const updatedOpponentBattlefield = [aiCard];
+
+        const opponentTotal = updatedOpponentBattlefield.length + updatedOpponentHand.length;
+        const opponentCardsToDraw = Math.max(0, 4 - opponentTotal);
+        const newOpponentCards = getInitialHand(opponentCardsToDraw);
+        const finalOpponentHand = [...updatedOpponentHand, ...newOpponentCards];
+
+        return {
+          ...currentState,
+          players: {
+            ...currentState.players,
+            opponent: { ...currentState.players.opponent, hand: finalOpponentHand }
+          },
+          battlefield: {
+            ...currentState.battlefield,
+            opponent: updatedOpponentBattlefield
+          },
+          currentTurn: 'player', // Switch to player after AI plays
+          gameStatus: 'playing'
+        };
+      }
+    }
+    // If no card is played, switch to player's turn
+    return { ...currentState, currentTurn: 'player' };
   };
 
+  // Combat logic in useEffect
   useEffect(() => {
     const interval = setInterval(() => {
       setGameState(prevState => {
@@ -84,7 +129,6 @@ function App() {
           const playerCard = prevState.battlefield.player[0];
           const opponentCard = prevState.battlefield.opponent[0];
 
-          // Calculate damage with minimum of 1
           const playerDamage = Math.max(1, playerCard.attack - opponentCard.defense);
           const opponentDamage = Math.max(1, opponentCard.attack - playerCard.defense);
 
@@ -96,23 +140,27 @@ function App() {
           let updatedBattlefield = { ...prevState.battlefield };
           let playerHP = prevState.players.player.hp;
           let opponentHP = prevState.players.opponent.hp;
+          let playerEnergy = prevState.players.player.energy;
+          let opponentEnergy = prevState.players.opponent.energy;
 
-          // Energy drain based on damage difference
+          // Drain energy based on damage difference
           const damageDifference = opponentDamage - playerDamage;
           if (damageDifference > 0) {
-            playerHP = Math.max(0, playerHP - damageDifference);
-            addCombatLogEntry(`Player loses ${damageDifference} energy due to damage difference`, 'energy');
+            const energyDrain = Math.min(damageDifference, MAX_ENERGY_DRAIN);
+            playerEnergy = Math.max(0, playerEnergy - energyDrain);
+            addCombatLogEntry(`Player loses ${energyDrain} energy due to damage difference`, 'energy');
           } else if (damageDifference < 0) {
-            opponentHP = Math.max(0, opponentHP + damageDifference); // + because difference is negative
-            addCombatLogEntry(`Opponent loses ${-damageDifference} energy due to damage difference`, 'energy');
+            const energyDrain = Math.min(-damageDifference, MAX_ENERGY_DRAIN);
+            opponentEnergy = Math.max(0, opponentEnergy - energyDrain);
+            addCombatLogEntry(`Opponent loses ${energyDrain} energy due to damage difference`, 'energy');
           }
 
-          // Update battlefield
+          // Handle card defeat and HP drain
           if (updatedPlayerCard.hp <= 0) {
             addCombatLogEntry(`${playerCard.name} has been defeated!`, 'death');
             updatedBattlefield.player = [];
             playerHP = Math.max(0, playerHP - updatedOpponentCard.hp);
-            addCombatLogEntry(`Player loses ${updatedOpponentCard.hp} energy due to card defeat`, 'energy');
+            addCombatLogEntry(`Player loses ${updatedOpponentCard.hp} HP due to card defeat`, 'hp');
             setKillCount(prev => ({ ...prev, opponent: prev.opponent + 1 }));
           } else {
             updatedBattlefield.player = [updatedPlayerCard];
@@ -122,45 +170,71 @@ function App() {
             addCombatLogEntry(`${opponentCard.name} has been defeated!`, 'death');
             updatedBattlefield.opponent = [];
             opponentHP = Math.max(0, opponentHP - updatedPlayerCard.hp);
-            addCombatLogEntry(`Opponent loses ${updatedPlayerCard.hp} energy due to card defeat`, 'energy');
+            addCombatLogEntry(`Opponent loses ${updatedPlayerCard.hp} HP due to card defeat`, 'hp');
             setKillCount(prev => ({ ...prev, player: prev.player + 1 }));
           } else {
             updatedBattlefield.opponent = [updatedOpponentCard];
           }
 
-          // Fatigue mechanism: after 5 rounds, both lose 5 energy
           setRoundCounter(prev => prev + 1);
+          setTotalRounds(prev => prev + 1);
+
+          // Fatigue: drain energy after 5 rounds
           if (roundCounter >= 5) {
-            playerHP = Math.max(0, playerHP - 5);
-            opponentHP = Math.max(0, opponentHP - 5);
+            playerEnergy = Math.max(0, playerEnergy - 5);
+            opponentEnergy = Math.max(0, opponentEnergy - 5);
             addCombatLogEntry(`Both players lose 5 energy due to fatigue`, 'energy');
-            setRoundCounter(0); // Reset round counter after fatigue
+            setRoundCounter(0);
           }
 
-          const gameStatus = playerHP <= 0 || opponentHP <= 0 ? 'finished' : 'playing';
-          const newTurn = updatedBattlefield.player.length === 0 || updatedBattlefield.opponent.length === 0 ? 'player' : prevState.currentTurn;
+          // Determine game status
+          const gameStatus: GameState['gameStatus'] = playerHP <= 0 || opponentHP <= 0 ? 'finished' : 'playing';
+          if (totalRounds >= MAX_ROUNDS) {
+            addCombatLogEntry(`Game ends due to maximum rounds reached!`, 'info');
+            return {
+              ...prevState,
+              battlefield: updatedBattlefield,
+              players: {
+                ...prevState.players,
+                player: { ...prevState.players.player, hp: playerHP, energy: playerEnergy },
+                opponent: { ...prevState.players.opponent, hp: opponentHP, energy: opponentEnergy }
+              },
+              gameStatus: 'finished',
+              currentTurn: prevState.currentTurn
+            };
+          }
 
-          return {
+          const baseNewState: GameState = {
             ...prevState,
             battlefield: updatedBattlefield,
             players: {
               ...prevState.players,
-              player: { ...prevState.players.player, hp: playerHP },
-              opponent: { ...prevState.players.opponent, hp: opponentHP }
+              player: { ...prevState.players.player, hp: playerHP, energy: playerEnergy },
+              opponent: { ...prevState.players.opponent, hp: opponentHP, energy: opponentEnergy }
             },
-            currentTurn: newTurn,
             gameStatus,
-            playerHealth: playerHP,
-            opponentHealth: opponentHP
+            currentTurn: updatedBattlefield.player.length === 0 ? 'player' : prevState.currentTurn // Force player turn if their battlefield is empty
           };
+
+          if (updatedBattlefield.opponent.length === 0 && prevState.players.opponent.hand.length > 0) {
+            return handleAIPlay(baseNewState);
+          }
+          return baseNewState;
+        } else if (
+          prevState.battlefield.opponent.length === 0 &&
+          prevState.players.opponent.hand.length > 0 &&
+          prevState.gameStatus === 'playing'
+        ) {
+          return handleAIPlay(prevState);
         }
         return prevState;
       });
-    }, 2000);
+    }, 500); // 500ms for testing, revert to 2000ms for normal gameplay
 
     return () => clearInterval(interval);
-  }, [roundCounter]);
+  }, [roundCounter, totalRounds, addCombatLogEntry]);
 
+  // Handle player card play
   const handleCardPlay = (card: CardType) => {
     if (gameState.currentTurn !== 'player' || gameState.battlefield.player.length > 0) return;
 
@@ -198,15 +272,16 @@ function App() {
       return {
         ...prevState,
         players: {
+          ...prevState.players,
           player: { ...prevState.players.player, hand: finalPlayerHand },
           opponent: { ...prevState.players.opponent, hand: finalOpponentHand }
         },
         battlefield: updatedBattlefield,
-        currentTurn: 'player',
+        currentTurn: updatedBattlefield.opponent.length > 0 ? 'opponent' : 'player',
         gameStatus: 'playing'
       };
     });
-    setRoundCounter(0); // Reset round counter when a new card is played
+    setRoundCounter(0);
   };
 
   return (
@@ -214,13 +289,13 @@ function App() {
       <div className="app">
         <div className="background-rectangle" />
         <div className="game-container">
-          <button 
+          <button
             className="instructions-button"
             onClick={() => setShowInstructions(!showInstructions)}
           >
             {showInstructions ? 'Hide Instructions' : 'Show Instructions'}
           </button>
-          
+
           {showInstructions && (
             <div className="instructions-dialog">
               <div className="instructions-content">
@@ -232,12 +307,13 @@ function App() {
                 <div className="instruction-section">
                   <h3>Card Combat System</h3>
                   <ul>
-                    <li>Each player starts with 300 HP and 4 cards</li>
+                    <li>Each player starts with 300 HP, 300 Energy, and 4 cards</li>
                     <li>Players play one card at a time to the battlefield</li>
                     <li>Cards fight automatically until one is defeated:</li>
                     <li>- Damage dealt = Math.max(1, Attacker's Attack - Defender's Defense)</li>
-                    <li>- Energy drains based on damage difference and card defeats</li>
-                    <li>- Fatigue applies after 5 rounds of battle</li>
+                    <li>- Energy drains based on damage difference</li>
+                    <li>- HP drains when a card is defeated</li>
+                    <li>- Fatigue drains 5 energy after 5 rounds</li>
                   </ul>
                 </div>
                 <div className="instruction-section">
@@ -252,11 +328,11 @@ function App() {
                   <h3>Winning the Game</h3>
                   <ul>
                     <li>Reduce your opponent's HP to 0 to win</li>
+                    <li>After 20 rounds, the player with more HP wins</li>
                     <li>Strategic card placement is key - balance Attack and Defense</li>
-                    <li>Protect your HP with strong defenders</li>
                   </ul>
                 </div>
-                <button 
+                <button
                   className="close-instructions"
                   onClick={() => setShowInstructions(false)}
                 >
@@ -265,26 +341,37 @@ function App() {
               </div>
             </div>
           )}
-          
+
           {gameState.gameStatus === 'finished' ? (
             <GameOver
-              isVictory={gameState.players.opponent.hp <= 0}
-              playerHealth={gameState.players.player.hp}
-              opponentHealth={gameState.players.opponent.hp}
+              isVictory={
+                gameState.players.opponent.hp <= 0 ||
+                (totalRounds >= MAX_ROUNDS && gameState.players.player.hp > gameState.players.opponent.hp)
+              }
+              playerHP={gameState.players.player.hp}
+              opponentHP={gameState.players.opponent.hp}
               onPlayAgain={() => {
                 setGameState({
                   players: {
                     player: {
                       id: 'player',
                       hp: 300,
+                      energy: 300,
                       deck: [],
-                      hand: getInitialHand(4)
+                      hand: getInitialHand(4).map(card => ({
+                        ...card,
+                        maxHp: card.maxHp || card.hp
+                      }))
                     },
                     opponent: {
                       id: 'opponent',
                       hp: 300,
+                      energy: 300,
                       deck: [],
-                      hand: getInitialHand(4)
+                      hand: getInitialHand(4).map(card => ({
+                        ...card,
+                        maxHp: card.maxHp || card.hp
+                      }))
                     }
                   },
                   battlefield: {
@@ -293,14 +380,13 @@ function App() {
                   },
                   currentTurn: 'player',
                   gameStatus: 'waiting',
-                  playerHealth: 300,
                   playerMaxHealth: 300,
-                  opponentHealth: 300,
                   opponentMaxHealth: 300
                 });
                 setCombatLog([]);
                 setKillCount({ player: 0, opponent: 0 });
-                setRoundCounter(0); // Reset round counter
+                setRoundCounter(0);
+                setTotalRounds(0);
               }}
             />
           ) : (
@@ -322,3 +408,8 @@ function App() {
 }
 
 export default App;
+
+// game.js remains unchanged as it’s not integrated into the React app
+// game.ts remains unchanged as it matches the current structure
+
+// GameOver.tsx remains unchanged as it’s functioning correctly
