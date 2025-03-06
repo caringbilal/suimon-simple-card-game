@@ -7,7 +7,7 @@ import '../styles/player.css';
 import GameEndDialog from './GameEndDialog';
 import { useDrop } from 'react-dnd';
 
-// Monster images (ensure these match your asset paths)
+// Monster images (unchanged)
 import sui from '../assets/monsters/sui.png';
 import grum from '../assets/monsters/grum.png';
 import stomp from '../assets/monsters/stomp.png';
@@ -48,6 +48,7 @@ interface GameBoardProps {
   opponentInfo: { name: string; avatar: string };
   combatLog: CombatLogEntry[];
   addCombatLogEntry: (message: string, type: string) => void;
+  killCount: { player: number; opponent: number };
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({
@@ -57,11 +58,11 @@ const GameBoard: React.FC<GameBoardProps> = ({
   playerInfo,
   opponentInfo,
   combatLog,
-  addCombatLogEntry
+  addCombatLogEntry,
+  killCount
 }) => {
   const [attackingCard, setAttackingCard] = useState<string | null>(null);
   const [defendingCard, setDefendingCard] = useState<string | null>(null);
-  const [killCount, setKillCount] = useState<{ player: number; opponent: number }>({ player: 0, opponent: 0 });
 
   // Trigger attack/defense animations during combat
   useEffect(() => {
@@ -79,19 +80,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
     } else {
       setAttackingCard(null);
       setDefendingCard(null);
-    }
-  }, [gameState.battlefield]);
-
-  // Update kill count when cards are defeated
-  useEffect(() => {
-    const playerCard = gameState.battlefield.player[0];
-    const opponentCard = gameState.battlefield.opponent[0];
-
-    if (playerCard && playerCard.hp <= 0) {
-      setKillCount(prev => ({ ...prev, opponent: prev.opponent + 1 }));
-    }
-    if (opponentCard && opponentCard.hp <= 0) {
-      setKillCount(prev => ({ ...prev, player: prev.player + 1 }));
     }
   }, [gameState.battlefield]);
 
@@ -120,7 +108,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
       opponentHealth: 300,
       opponentMaxHealth: 300
     });
-    setKillCount({ player: 0, opponent: 0 });
   };
 
   return (
@@ -191,16 +178,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
             </div>
           </div>
           <div className="combat-stats-content">
-            {gameState.battlefield.player.map(card => (
-              <div key={card.id}>
-                {card.name}: {card.hp}/{card.maxHp} HP, ATK: {card.attack}, DEF: {card.defense}
-              </div>
-            ))}
-            {gameState.battlefield.opponent.map(card => (
-              <div key={card.id}>
-                {card.name}: {card.hp}/{card.maxHp} HP, ATK: {card.attack}, DEF: {card.defense}
-              </div>
-            ))}
             {combatLog.slice(-5).map((entry, index) => (
               <div key={index} className={`combat-log-entry ${entry.type}`}>
                 {entry.message}
