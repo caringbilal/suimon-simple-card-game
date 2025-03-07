@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
 import { GameState, CardType } from '../types/game';
 import Card from './Card';
 import cardBack from '../assets/ui/card-back.png';
@@ -6,6 +6,7 @@ import '../styles/combat.css';
 import '../styles/player.css';
 import GameEndDialog from './GameEndDialog';
 import { useDrop } from 'react-dnd';
+import { Socket } from 'socket.io-client';
 
 interface CombatLogEntry {
   timestamp: number;
@@ -16,12 +17,15 @@ interface CombatLogEntry {
 interface GameBoardProps {
   gameState: GameState;
   onCardPlay: (card: CardType) => void;
-  setGameState: React.Dispatch<React.SetStateAction<GameState>>;
+  setGameState: Dispatch<SetStateAction<GameState | null>>;
   playerInfo: { name: string; avatar: string };
   opponentInfo: { name: string; avatar: string };
   combatLog: CombatLogEntry[];
   addCombatLogEntry: (message: string, type: string) => void;
   killCount: { player: number; opponent: number };
+  playerRole: 'player1' | 'player2';
+  roomId: string | null;
+  socket: Socket;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({
@@ -32,74 +36,88 @@ const GameBoard: React.FC<GameBoardProps> = ({
   opponentInfo,
   combatLog,
   addCombatLogEntry,
-  killCount
+  killCount,
+  playerRole,
+  roomId,
+  socket,
 }) => {
   const [attackingCard, setAttackingCard] = useState<string | null>(null);
   const [defendingCard, setDefendingCard] = useState<string | null>(null);
 
-  // Combat logic: Handle the fight between player and opponent cards
+  // Determine player and opponent keys based on the player's role
+  const playerKey = playerRole === 'player1' ? 'player' : 'opponent';
+  const opponentKey = playerRole === 'player1' ? 'opponent' : 'player';
+
+  // Handle combat between cards on the battlefield
   const handleCombat = () => {
-    const playerCard = gameState.battlefield.player[0];
-    const opponentCard = gameState.battlefield.opponent[0];
+    const playerCard = gameState.battlefield[playerKey][0];
+    const opponentCard = gameState.battlefield[opponentKey][0];
 
     if (!playerCard || !opponentCard) return;
 
-    // Calculate damage (minimum 1 damage)
     const playerDamage = Math.max(1, playerCard.attack - opponentCard.defense);
     const opponentDamage = Math.max(1, opponentCard.attack - playerCard.defense);
 
-    // Update card HP
     playerCard.hp -= opponentDamage;
     opponentCard.hp -= playerDamage;
 
-    // Proportional energy loss (e.g., 5 energy per damage point)
     const energyLossFactor = 5;
-    const playerEnergyLoss = Math.min(opponentDamage * energyLossFactor, gameState.players.player.energy);
-    const opponentEnergyLoss = Math.min(playerDamage * energyLossFactor, gameState.players.opponent.energy);
+    const playerEnergyLoss = Math.min(opponentDamage * energyLossFactor, gameState.players[playerKey].energy);
+    const opponentEnergyLoss = Math.min(playerDamage * energyLossFactor, gameState.players[opponentKey].energy);
 
-    // Update game state
-    setGameState((prevState) => {
-      return {
-        ...prevState,
-        players: {
-          ...prevState.players,
-          player: {
-            ...prevState.players.player,
-            energy: prevState.players.player.energy - playerEnergyLoss,
-          },
-          opponent: {
-            ...prevState.players.opponent,
-            energy: prevState.players.opponent.energy - opponentEnergyLoss,
-          },
+    const updatedState: GameState = {
+      ...gameState,
+      players: {
+        ...gameState.players,
+        [playerKey]: {
+          ...gameState.players[playerKey],
+          energy: gameState.players[playerKey].energy - playerEnergyLoss,
         },
-        battlefield: {
-          player: playerCard.hp > 0 ? [playerCard] : [],
-          opponent: opponentCard.hp > 0 ? [opponentCard] : [],
+        [opponentKey]: {
+          ...gameState.players[opponentKey],
+          energy: gameState.players[opponentKey].energy - opponentEnergyLoss,
         },
-      };
-    });
+      },
+      battlefield: {
+        ...gameState.battlefield,
+        [playerKey]: playerCard.hp > 0 ? [playerCard] : [],
+        [opponentKey]: opponentCard.hp > 0 ? [opponentCard] : [],
+      },
+      currentTurn: playerCard.hp <= 0 ? opponentKey : playerKey,
+      gameStatus: gameState.players[playerKey].energy <= 0 || gameState.players[opponentKey].energy <= 0 ? 'finished' : 'playing',
+    };
 
-    // Log energy changes
+    if (playerCard.hp <= 0) {
+      addCombatLogEntry(`${playerCard.name} has been defeated!`, 'death');
+    }
+    if (opponentCard.hp <= 0) {
+      addCombatLogEntry(`${opponentCard.name} has been defeated!`, 'death');
+    }
     addCombatLogEntry(`Player loses ${playerEnergyLoss} energy`, 'energy');
     addCombatLogEntry(`Opponent loses ${opponentEnergyLoss} energy`, 'energy');
+
+    setGameState(updatedState);
+    if (roomId) {
+      socket.emit('updateGameState', roomId, updatedState);
+    }
   };
 
-  // Fight interval set to 500ms for testing
+  // Automatically trigger combat every 500ms if both players have cards on the battlefield
   useEffect(() => {
     const fightInterval = setInterval(() => {
-      if (gameState.battlefield.player.length > 0 && gameState.battlefield.opponent.length > 0) {
+      if (gameState.battlefield[playerKey].length > 0 && gameState.battlefield[opponentKey].length > 0) {
         handleCombat();
       }
-    }, 500); // 0.5 seconds for testing (change to 2000 for normal gameplay)
+    }, 500);
 
     return () => clearInterval(fightInterval);
-  }, [gameState]);
+  }, [gameState, playerRole]);
 
-  // Animation logic for attacking and defending cards
+  // Handle combat animations
   useEffect(() => {
-    if (gameState.battlefield.player.length > 0 && gameState.battlefield.opponent.length > 0) {
-      const playerCard = gameState.battlefield.player[0];
-      const opponentCard = gameState.battlefield.opponent[0];
+    if (gameState.battlefield[playerKey].length > 0 && gameState.battlefield[opponentKey].length > 0) {
+      const playerCard = gameState.battlefield[playerKey][0];
+      const opponentCard = gameState.battlefield[opponentKey][0];
 
       setAttackingCard(playerCard.id);
       setDefendingCard(opponentCard.id);
@@ -112,48 +130,55 @@ const GameBoard: React.FC<GameBoardProps> = ({
       setAttackingCard(null);
       setDefendingCard(null);
     }
-  }, [gameState.battlefield]);
+  }, [gameState.battlefield, playerRole]);
 
+  // Handle card drops onto the battlefield
   const [{ isOver }, dropRef] = useDrop<CardType, void, { isOver: boolean }>({
     accept: 'CARD',
     drop: (item) => {
-      onCardPlay(item);
+      const isPlayerTurn = playerRole === 'player1' ? gameState.currentTurn === 'player' : gameState.currentTurn === 'opponent';
+      if (isPlayerTurn) onCardPlay(item);
       return undefined;
     },
-    collect: monitor => ({
-      isOver: monitor.isOver()
-    })
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+    }),
   });
 
+  // Restart the game with a fresh state
   const handleRestart = () => {
-    setGameState({
-      gameStatus: "waiting",
-      currentTurn: "player",
+    const newState: GameState = {
+      gameStatus: 'waiting',
+      currentTurn: 'player',
       battlefield: { player: [], opponent: [] },
       players: {
         player: {
-          id: "player",
-          hand: gameState.players.player.hand, // Or reset to initial hand if desired
+          id: 'player1',
+          hand: gameState.players.player.hand,
           deck: [],
-          energy: 300
+          energy: 700,
         },
         opponent: {
-          id: "opponent",
-          hand: gameState.players.opponent.hand, // Or reset to initial hand if desired
+          id: 'player2',
+          hand: gameState.players.opponent.hand,
           deck: [],
-          energy: 300
-        }
+          energy: 700,
+        },
       },
-      playerMaxHealth: 300,
-      opponentMaxHealth: 300
-    });
+      playerMaxHealth: 700,
+      opponentMaxHealth: 700,
+    };
+    setGameState(newState);
+    if (roomId) {
+      socket.emit('updateGameState', roomId, newState);
+    }
   };
 
   return (
     <div className="game-board">
       {gameState.gameStatus === 'finished' && (
         <GameEndDialog
-          winner={gameState.players.opponent.energy <= 0 ? 'player' : 'opponent'}
+          winner={gameState.players[playerKey].energy <= 0 ? opponentKey : playerKey}
           onRestart={handleRestart}
         />
       )}
@@ -175,14 +200,14 @@ const GameBoard: React.FC<GameBoardProps> = ({
           <div className="summary-content">
             <div className="summary-title">OPPONENT CARDS TOTAL HP</div>
             <div className="summary-value">
-              {gameState.battlefield.opponent.reduce((total, card) => total + card.hp, 0) +
-               gameState.players.opponent.hand.reduce((total, card) => total + card.hp, 0)}
+              {gameState.battlefield[opponentKey].reduce((total, card) => total + card.hp, 0) +
+                gameState.players[opponentKey].hand.reduce((total, card) => total + card.hp, 0)}
               <div className="hp-bar">
                 <div
                   className="hp-fill"
-                  style={{ width: `${(gameState.players.opponent.energy / gameState.opponentMaxHealth) * 100}%` }}
+                  style={{ width: `${(gameState.players[opponentKey].energy / gameState.opponentMaxHealth) * 100}%` }}
                 />
-                <span>{gameState.players.opponent.energy} Energy</span>
+                <span>{gameState.players[opponentKey].energy} Energy</span>
               </div>
             </div>
           </div>
@@ -192,14 +217,14 @@ const GameBoard: React.FC<GameBoardProps> = ({
           <div className="summary-content">
             <div className="summary-title">PLAYER CARDS TOTAL HP</div>
             <div className="summary-value">
-              {gameState.battlefield.player.reduce((total, card) => total + card.hp, 0) +
-               gameState.players.player.hand.reduce((total, card) => total + card.hp, 0)}
+              {gameState.battlefield[playerKey].reduce((total, card) => total + card.hp, 0) +
+                gameState.players[playerKey].hand.reduce((total, card) => total + card.hp, 0)}
               <div className="hp-bar">
                 <div
                   className="hp-fill"
-                  style={{ width: `${(gameState.players.player.energy / gameState.playerMaxHealth) * 100}%` }}
+                  style={{ width: `${(gameState.players[playerKey].energy / gameState.playerMaxHealth) * 100}%` }}
                 />
-                <span>{gameState.players.player.energy} Energy</span>
+                <span>{gameState.players[playerKey].energy} Energy</span>
               </div>
             </div>
           </div>
@@ -208,10 +233,10 @@ const GameBoard: React.FC<GameBoardProps> = ({
           <div className="combat-stats-title">Combat Statistics</div>
           <div className="total-cards-info">
             <div className="player-cards-count">
-              Player Total Cards: {gameState.players.player.hand.length + gameState.battlefield.player.length}
+              Player Total Cards: {gameState.players[playerKey].hand.length + gameState.battlefield[playerKey].length}
             </div>
             <div className="opponent-cards-count">
-              Opponent Total Cards: {gameState.players.opponent.hand.length + gameState.battlefield.opponent.length}
+              Opponent Total Cards: {gameState.players[opponentKey].hand.length + gameState.battlefield[opponentKey].length}
             </div>
           </div>
           <div className="combat-stats-content">
@@ -224,18 +249,18 @@ const GameBoard: React.FC<GameBoardProps> = ({
         </div>
       </div>
 
-      <div className={`player-area opponent ${gameState.currentTurn === 'opponent' ? 'active-turn' : ''}`}>
+      <div className={`player-area opponent ${gameState.currentTurn === opponentKey ? 'active-turn' : ''}`}>
         <div className="player-profile opponent-profile">
           <img src={opponentInfo.avatar} alt="Opponent" className="profile-picture" />
           <span className="player-name">
             {opponentInfo.name}
-            <span className={`turn-indicator ${gameState.currentTurn === 'opponent' ? 'active' : 'waiting'}`}>
-              {gameState.currentTurn === 'opponent' ? 'Opponent Turn' : 'Waiting...'}
+            <span className={`turn-indicator ${gameState.currentTurn === opponentKey ? 'active' : 'waiting'}`}>
+              {gameState.currentTurn === opponentKey ? 'Opponent Turn' : 'Waiting...'}
             </span>
           </span>
         </div>
         <div className="player-hand opponent-hand">
-          {gameState.players.opponent.hand.map((card: CardType) => (
+          {gameState.players[opponentKey].hand.map((card: CardType) => (
             <div key={card.id} className="card">
               <img src={cardBack} alt="Card Back" className="card-back-image" />
             </div>
@@ -245,7 +270,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
 
       <div className="battlefield">
         <div className="opponent-field">
-          {gameState.battlefield.opponent.map((card: CardType) => (
+          {gameState.battlefield[opponentKey].map((card: CardType) => (
             <Card
               key={card.id}
               card={card}
@@ -259,7 +284,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
           ))}
         </div>
         <div ref={dropRef as unknown as React.RefObject<HTMLDivElement>} className={`player-field ${isOver ? 'field-highlight' : ''}`}>
-          {gameState.battlefield.player.map((card: CardType) => (
+          {gameState.battlefield[playerKey].map((card: CardType) => (
             <Card
               key={card.id}
               card={card}
@@ -274,18 +299,18 @@ const GameBoard: React.FC<GameBoardProps> = ({
         </div>
       </div>
 
-      <div className={`player-area current-player ${gameState.currentTurn === 'player' ? 'active-turn' : ''}`}>
+      <div className={`player-area current-player ${gameState.currentTurn === playerKey ? 'active-turn' : ''}`}>
         <div className="player-profile">
           <img src={playerInfo.avatar} alt="Player" className="profile-picture" />
           <span className="player-name">
             {playerInfo.name}
-            <span className={`turn-indicator ${gameState.currentTurn === 'player' && gameState.battlefield.player.length === 0 ? 'active' : 'waiting'}`}>
-              {gameState.currentTurn === 'player' && gameState.battlefield.player.length === 0 ? 'Your Turn' : 'Please Wait...'}
+            <span className={`turn-indicator ${gameState.currentTurn === playerKey && gameState.battlefield[playerKey].length === 0 ? 'active' : 'waiting'}`}>
+              {gameState.currentTurn === playerKey && gameState.battlefield[playerKey].length === 0 ? 'Your Turn' : 'Please Wait...'}
             </span>
           </span>
         </div>
         <div className="player-hand">
-          {gameState.players.player.hand.map((card: CardType) => (
+          {gameState.players[playerKey].hand.map((card: CardType) => (
             <Card key={card.id} card={card} onClick={() => onCardPlay(card)} />
           ))}
         </div>

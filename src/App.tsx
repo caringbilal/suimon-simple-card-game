@@ -2,25 +2,28 @@ import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import GameBoard from './components/GameBoard';
 import GameOver from './components/GameOver';
-import Dialog from './components/Dialog';
 import { GameState, CardType } from './types/game';
 import { getInitialHand } from './data/monsters';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { GameAI } from './utils/gameAI';
-import AIPlayerProfile from './assets/ui/AIPlayer_Profile.jpg';
+import { io, Socket } from 'socket.io-client';
 import PlayerProfile from './assets/ui/Player_Profile.jpg';
 
-// Player and opponent info constants
-const playerInfo = {
-  name: "Player",
-  avatar: PlayerProfile,
-};
+// Define the server URL using your laptop's IP address
+const SERVER_URL = 'http://192.168.70.105:3000'; // Ensure this matches your laptop's IP
+const socket: Socket = io(SERVER_URL, {
+  transports: ['websocket'],
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  timeout: 20000,
+  autoConnect: true, // Enable auto-connect by default
+});
 
-const opponentInfo = {
-  name: "AI Opponent",
-  avatar: AIPlayerProfile,
-};
+// Player info constants
+const player1Info = { name: 'Player 1', avatar: PlayerProfile };
+const player2Info = { name: 'Player 2', avatar: PlayerProfile };
 
 // Interface for combat log entries
 interface CombatLogEntry {
@@ -32,338 +35,330 @@ interface CombatLogEntry {
 function App() {
   // Game constants
   const MAX_ENERGY = 700;
-  const MAX_ENERGY_DRAIN = 7; // Adjusted for slower energy loss
-  const ENERGY_LOSS_PER_CARD_DEFEAT = 14; // Adjusted for slower energy loss
 
-  // Initial game state
-  const [gameState, setGameState] = useState<GameState>({
-    players: {
-      player: {
-        id: 'player',
-        energy: MAX_ENERGY,
-        deck: [],
-        hand: getInitialHand(4).map(card => ({
-          ...card,
-          maxHp: card.maxHp || card.hp
-        }))
-      },
-      opponent: {
-        id: 'opponent',
-        energy: MAX_ENERGY,
-        deck: [],
-        hand: getInitialHand(4).map(card => ({
-          ...card,
-          maxHp: card.maxHp || card.hp
-        }))
-      }
-    },
-    battlefield: {
-      player: [],
-      opponent: []
-    },
-    currentTurn: 'player',
-    gameStatus: 'waiting',
-    playerMaxHealth: MAX_ENERGY,
-    opponentMaxHealth: MAX_ENERGY
-  });
-
-  const [showInstructions, setShowInstructions] = useState(false);
+  // State variables
+  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const [playerRole, setPlayerRole] = useState<'player1' | 'player2' | null>(null);
+  const [joinRoomInput, setJoinRoomInput] = useState('');
   const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([]);
   const [killCount, setKillCount] = useState({ player: 0, opponent: 0 });
+  const [dialogMessage, setDialogMessage] = useState<string | null>(null);
 
   // Memoized function to add combat log entries
   const addCombatLogEntry = useCallback((message: string, type: string = 'info') => {
-    setCombatLog(prevLog => [
+    setCombatLog((prevLog) => [
       ...prevLog,
-      { timestamp: Date.now(), message, type }
+      { timestamp: Date.now(), message, type },
     ]);
   }, []);
 
-  // AI play handler
-  const handleAIPlay = (currentState: GameState): GameState => {
-    const opponentHand = currentState.players.opponent.hand;
-    if (opponentHand.length > 0 && currentState.battlefield.opponent.length === 0) {
-      const aiCard = opponentHand[0]; // Simplified AI: plays the first card
-      const updatedHand = opponentHand.slice(1);
-      const updatedBattlefield = { ...currentState.battlefield, opponent: [aiCard] };
-
-      return {
-        ...currentState,
-        players: {
-          ...currentState.players,
-          opponent: { ...currentState.players.opponent, hand: updatedHand },
-        },
-        battlefield: updatedBattlefield,
-        currentTurn: 'player',
-      };
-    }
-    return { ...currentState, currentTurn: 'player' };
-  };
-
-  // Combat logic in useEffect
+  // Handle Socket.IO events
   useEffect(() => {
-    const interval = setInterval(() => {
-      setGameState((prevState: GameState): GameState => {
-        if (prevState.gameStatus !== 'playing') return prevState;
+    socket.on('connect', () => {
+      console.log('Connected to server at', SERVER_URL);
+    });
 
-        let updatedBattlefield = { ...prevState.battlefield };
-        let playerEnergy = prevState.players.player.energy;
-        let opponentEnergy = prevState.players.opponent.energy;
+    socket.on('roomCreated', (id: string) => {
+      console.log('Room created event received:', id);
+      setDialogMessage('Room created successfully. Waiting for opponent...');
+      setRoomId(id);
+      setPlayerRole('player1');
+    });
 
-        if (
-          updatedBattlefield.player.length > 0 &&
-          updatedBattlefield.opponent.length > 0
-        ) {
-          const playerCard = updatedBattlefield.player[0];
-          const opponentCard = updatedBattlefield.opponent[0];
+    socket.on('joinSuccess', (id: string) => {
+      console.log('Join success event received:', id);
+      setDialogMessage('Successfully joined the room. Game will start soon...');
+    });
 
-          const playerDamage = Math.max(1, playerCard.attack - opponentCard.defense);
-          const opponentDamage = Math.max(1, opponentCard.attack - playerCard.defense);
+    socket.on('startGame', (id: string) => {
+      console.log('Start game event received:', id);
+      setDialogMessage('Game starting...');
+      setRoomId(id);
+      if (!playerRole) {
+        console.log('Setting player role to player2');
+        setPlayerRole('player2');
+      }
+      const initialState: GameState = {
+        players: {
+          player: { id: 'player1', energy: MAX_ENERGY, deck: [], hand: getInitialHand(4) },
+          opponent: { id: 'player2', energy: MAX_ENERGY, deck: [], hand: getInitialHand(4) },
+        },
+        battlefield: { player: [], opponent: [] },
+        currentTurn: 'player',
+        gameStatus: 'waiting',
+        playerMaxHealth: MAX_ENERGY,
+        opponentMaxHealth: MAX_ENERGY,
+      };
+      console.log('Setting initial game state:', initialState);
+      setGameState(initialState);
+      if (playerRole === 'player1') {
+        console.log('Player1 emitting initial game state');
+        socket.emit('updateGameState', id, initialState);
+      }
+    });
 
-          addCombatLogEntry(`${playerCard.name} deals ${playerDamage} damage to ${opponentCard.name}`, 'attack');
-          addCombatLogEntry(`${opponentCard.name} deals ${opponentDamage} damage to ${playerCard.name}`, 'attack');
+    socket.on('gameStateUpdate', (newState: GameState) => {
+      console.log('Game state update received:', newState);
+      setGameState(newState);
+      setDialogMessage(null);
+    });
 
-          const updatedPlayerCard = { ...playerCard, hp: playerCard.hp - opponentDamage };
-          const updatedOpponentCard = { ...opponentCard, hp: opponentCard.hp - playerDamage };
+    socket.on('error', (msg: string) => {
+      console.log('Error received:', msg);
+      setDialogMessage(`Failed to connect: ${msg}. Please try again.`);
+      if (msg.includes('Room does not exist') || msg.includes('Room is full')) {
+        setRoomId(null);
+        setPlayerRole(null);
+        setGameState(null);
+        setCombatLog([]);
+        setKillCount({ player: 0, opponent: 0 });
+      }
+    });
 
-          // Drain energy based on damage difference
-          const damageDifference = opponentDamage - playerDamage;
-          if (damageDifference > 0) {
-            const energyDrain = Math.min(damageDifference, MAX_ENERGY_DRAIN);
-            playerEnergy = Math.max(0, playerEnergy - energyDrain);
-            addCombatLogEntry(`Player loses ${energyDrain} energy due to damage difference`, 'energy');
-          } else if (damageDifference < 0) {
-            const energyDrain = Math.min(-damageDifference, MAX_ENERGY_DRAIN);
-            opponentEnergy = Math.max(0, opponentEnergy - energyDrain);
-            addCombatLogEntry(`Opponent loses ${energyDrain} energy due to damage difference`, 'energy');
-          }
+    socket.on('playerDisconnected', () => {
+      console.log('Player disconnected');
+      setDialogMessage('Opponent disconnected. Game ended.');
+      setRoomId(null);
+      setPlayerRole(null);
+      setGameState(null);
+      setCombatLog([]);
+      setKillCount({ player: 0, opponent: 0 });
+    });
 
-          // Handle card defeat with fixed energy loss
-          if (updatedPlayerCard.hp <= 0) {
-            addCombatLogEntry(`${playerCard.name} has been defeated!`, 'death');
-            updatedBattlefield.player = [];
-            playerEnergy = Math.max(0, playerEnergy - ENERGY_LOSS_PER_CARD_DEFEAT);
-            addCombatLogEntry(`Player loses ${ENERGY_LOSS_PER_CARD_DEFEAT} energy due to card defeat`, 'energy');
-            setKillCount(prev => ({ ...prev, opponent: prev.opponent + 1 }));
-          } else {
-            updatedBattlefield.player = [updatedPlayerCard];
-          }
+    socket.on('connect_error', (error) => {
+      console.log('Connection error:', error.message);
+      setDialogMessage(`Connection failed: ${error.message}. Please try again or check network.`);
+    });
 
-          if (updatedOpponentCard.hp <= 0) {
-            addCombatLogEntry(`${opponentCard.name} has been defeated!`, 'death');
-            updatedBattlefield.opponent = [];
-            opponentEnergy = Math.max(0, opponentEnergy - ENERGY_LOSS_PER_CARD_DEFEAT);
-            addCombatLogEntry(`Opponent loses ${ENERGY_LOSS_PER_CARD_DEFEAT} energy due to card defeat`, 'energy');
-            setKillCount(prev => ({ ...prev, player: prev.player + 1 }));
-          } else {
-            updatedBattlefield.opponent = [updatedOpponentCard];
-          }
-        }
-
-        // Determine game status based solely on energy
-        const gameStatus: 'waiting' | 'playing' | 'finished' =
-          playerEnergy <= 0 || opponentEnergy <= 0 ? 'finished' : 'playing';
-
-        const newState: GameState = {
-          ...prevState,
-          battlefield: updatedBattlefield,
-          players: {
-            ...prevState.players,
-            player: { ...prevState.players.player, energy: playerEnergy },
-            opponent: { ...prevState.players.opponent, energy: opponentEnergy },
-          },
-          gameStatus,
-          currentTurn: prevState.currentTurn,
-          playerMaxHealth: prevState.playerMaxHealth,
-          opponentMaxHealth: prevState.opponentMaxHealth,
-        };
-
-        // Turn switching logic
-        if (newState.gameStatus === 'playing') {
-          if (updatedBattlefield.player.length === 0) {
-            newState.currentTurn = 'player';
-          } else if (updatedBattlefield.opponent.length === 0 && prevState.players.opponent.hand.length > 0) {
-            return handleAIPlay(newState);
-          } else if (prevState.currentTurn === 'opponent' && updatedBattlefield.opponent.length === 0) {
-            newState.currentTurn = 'player';
-          }
-        }
-
-        console.log(`Combat Tick: Player Energy=${playerEnergy}, Opponent Energy=${opponentEnergy}`);
-        return newState;
-      });
-    }, 500); // Combat tick every 500ms
-
-    return () => clearInterval(interval);
-  }, [addCombatLogEntry]);
+    // Cleanup listeners on unmount
+    return () => {
+      socket.off('connect');
+      socket.off('roomCreated');
+      socket.off('joinSuccess');
+      socket.off('startGame');
+      socket.off('gameStateUpdate');
+      socket.off('error');
+      socket.off('playerDisconnected');
+      socket.off('connect_error');
+      socket.offAny();
+    };
+  }, [playerRole]);
 
   // Handle player card play
   const handleCardPlay = (card: CardType) => {
-    if (gameState.currentTurn !== 'player' || gameState.battlefield.player.length > 0) return;
+    if (!gameState || !roomId || !playerRole) return;
 
-    setGameState(prevState => {
-      const updatedPlayerHand = prevState.players.player.hand.filter(c => c.id !== card.id);
-      const updatedPlayerBattlefield = [card];
+    const isPlayerTurn =
+      playerRole === 'player1'
+        ? gameState.currentTurn === 'player'
+        : gameState.currentTurn === 'opponent';
+    if (!isPlayerTurn || gameState.battlefield[playerRole === 'player1' ? 'player' : 'opponent'].length > 0)
+      return;
 
-      const gameAI = new GameAI();
-      const opponentHand = prevState.players.opponent.hand;
-      let updatedOpponentHand = opponentHand;
-      let updatedOpponentBattlefield = prevState.battlefield.opponent;
+    const playerKey = playerRole === 'player1' ? 'player' : 'opponent';
+    const updatedHand = gameState.players[playerKey].hand.filter((c) => c.id !== card.id);
+    const updatedBattlefield = { ...gameState.battlefield, [playerKey]: [card] };
+    const totalCards = updatedHand.length + updatedBattlefield[playerKey].length;
+    const cardsToDraw = Math.max(0, 4 - totalCards);
+    const newCards = getInitialHand(cardsToDraw);
+    const finalHand = [...updatedHand, ...newCards];
 
-      if (updatedOpponentBattlefield.length === 0 && opponentHand.length > 0) {
-        const aiCard = gameAI.decideMove(opponentHand, updatedPlayerBattlefield);
-        updatedOpponentHand = opponentHand.filter(c => c.id !== aiCard.id);
-        updatedOpponentBattlefield = [aiCard];
-      }
+    const newState: GameState = {
+      ...gameState,
+      players: {
+        ...gameState.players,
+        [playerKey]: { ...gameState.players[playerKey], hand: finalHand },
+      },
+      battlefield: updatedBattlefield,
+      currentTurn: playerRole === 'player1' ? 'opponent' : 'player',
+      gameStatus: 'playing',
+    };
 
-      const updatedBattlefield = {
-        player: updatedPlayerBattlefield,
-        opponent: updatedOpponentBattlefield
-      };
-
-      const playerTotal = updatedBattlefield.player.length + updatedPlayerHand.length;
-      const opponentTotal = updatedBattlefield.opponent.length + updatedOpponentHand.length;
-      const playerCardsToDraw = Math.max(0, 4 - playerTotal);
-      const opponentCardsToDraw = Math.max(0, 4 - opponentTotal);
-
-      const newPlayerCards = getInitialHand(playerCardsToDraw);
-      const newOpponentCards = getInitialHand(opponentCardsToDraw);
-
-      const finalPlayerHand = [...updatedPlayerHand, ...newPlayerCards];
-      const finalOpponentHand = [...updatedOpponentHand, ...newOpponentCards];
-
-      return {
-        ...prevState,
-        players: {
-          ...prevState.players,
-          player: { ...prevState.players.player, hand: finalPlayerHand },
-          opponent: { ...prevState.players.opponent, hand: finalOpponentHand }
-        },
-        battlefield: updatedBattlefield,
-        currentTurn: updatedBattlefield.opponent.length > 0 ? 'opponent' : 'player',
-        gameStatus: 'playing'
-      };
-    });
+    setGameState(newState);
+    socket.emit('updateGameState', roomId, newState);
   };
 
   // Calculate victory condition
-  const isVictory = gameState.players.opponent.energy <= 0;
+  const opponentEnergy = gameState?.players?.opponent?.energy;
+  const playerEnergy = gameState?.players?.player?.energy;
+  const isVictory =
+    opponentEnergy !== undefined && playerEnergy !== undefined
+      ? opponentEnergy <= 0 && playerEnergy > 0
+      : false;
 
-  if (gameState.gameStatus === 'finished') {
-    console.log(
-      `Game ended. isVictory: ${isVictory}, playerEnergy: ${gameState.players.player.energy}, opponentEnergy: ${gameState.players.opponent.energy}`
+  // Dialog component for feedback
+  const Dialog = ({ message }: { message: string }) => (
+    <div style={{ 
+      position: 'fixed', 
+      top: '10%', 
+      left: '50%', 
+      transform: 'translateX(-50%)', 
+      background: '#333',
+      color: '#fff', 
+      padding: '20px', 
+      border: '2px solid #666',
+      borderRadius: '8px', 
+      boxShadow: '0 4px 8px rgba(0,0,0,0.3)', 
+      zIndex: 1000,
+      minWidth: '300px',
+      textAlign: 'center'
+    }}>
+      <p style={{ fontSize: '16px', margin: '0 0 15px 0' }}>{message || 'Loading...'}</p>
+      <button 
+        onClick={() => setDialogMessage(null)}
+        style={{
+          background: '#4CAF50',
+          color: 'white',
+          border: 'none',
+          padding: '8px 16px',
+          borderRadius: '4px',
+          cursor: 'pointer'
+        }}
+      >
+        Close
+      </button>
+    </div>
+  );
+
+  const handleJoinGame = () => {
+    console.log('Join Game button clicked');
+    console.log('Socket connected:', socket.connected);
+
+    if (!joinRoomInput.trim()) {
+      setDialogMessage('Please enter a valid Room ID');
+      return;
+    }
+
+    if (!socket.connected) {
+      console.log('Attempting to reconnect...');
+      socket.connect();
+      setDialogMessage('Attempting to connect to server...');
+    }
+
+    setDialogMessage('Joining game room...');
+    socket.emit('joinRoom', joinRoomInput.trim());
+    console.log('Emitted joinRoom event with ID:', joinRoomInput.trim());
+
+    // Set up a timeout for room join response
+    const joinTimeout = setTimeout(() => {
+      setDialogMessage('Room join request timed out. Please try again or check network.');
+      socket.disconnect();
+    }, 15000);
+
+    // Listen for success or error
+    const handleJoinSuccess = () => {
+      clearTimeout(joinTimeout);
+      setDialogMessage('Successfully joined the room. Game will start soon...');
+    };
+
+    const handleError = (msg: string) => {
+      clearTimeout(joinTimeout);
+      setDialogMessage(`Failed to connect: ${msg}. Please try again or check network.`);
+      socket.disconnect();
+    };
+
+    socket.once('joinSuccess', handleJoinSuccess);
+    socket.once('error', handleError);
+
+    // Cleanup listeners if unmounted
+    return () => {
+      socket.off('joinSuccess', handleJoinSuccess);
+      socket.off('error', handleError);
+      clearTimeout(joinTimeout);
+    };
+  };
+
+  // Room creation/joining UI
+  if (!roomId) {
+    return (
+      <DndProvider backend={HTML5Backend}>
+        <div className="app">
+          <div className="background-rectangle" />
+          <div className="game-container">
+            <h2>Suimon Card Battle</h2>
+            <button
+              onClick={() => {
+                console.log('Create Game button clicked');
+                console.log('Socket connected:', socket.connected);
+                if (!socket.connected) {
+                  console.log('Attempting to reconnect...');
+                  socket.connect();
+                }
+                setDialogMessage('Creating game room... Socket status: ' + (socket.connected ? 'Connected' : 'Disconnected'));
+                socket.emit('createRoom');
+                console.log('Emitted createRoom event');
+              }}
+            >
+              Create Game
+            </button>
+            <input
+              type="text"
+              value={joinRoomInput}
+              onChange={(e) => setJoinRoomInput(e.target.value)}
+              placeholder="Enter Room ID"
+            />
+            <button
+              onClick={handleJoinGame}
+              className="join-game-button"
+            >
+              Join Game
+            </button>
+            {dialogMessage && <Dialog message={dialogMessage} />}
+          </div>
+        </div>
+      </DndProvider>
     );
   }
 
+  // Main game UI with game state and player info
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="app">
         <div className="background-rectangle" />
         <div className="game-container">
-          <button
-            className="instructions-button"
-            onClick={() => setShowInstructions(!showInstructions)}
-          >
-            {showInstructions ? 'Hide Instructions' : 'Show Instructions'}
-          </button>
-
-          {showInstructions && (
-            <div className="instructions-dialog">
-              <div className="instructions-content">
-                <h2>How to Play Suimon Card Battle</h2>
-                <div className="instruction-section">
-                  <h3>Game Overview</h3>
-                  <p>Suimon Card Battle is a strategic card game where you battle against an AI opponent using unique monster cards with Attack, Defense, and HP stats.</p>
-                </div>
-                <div className="instruction-section">
-                  <h3>Card Combat System</h3>
-                  <ul>
-                    <li>Each player starts with 700 Energy and 4 cards</li>
-                    <li>Players play one card at a time to the battlefield</li>
-                    <li>Cards fight automatically until one is defeated:</li>
-                    <li>- Damage dealt = Math.max(1, Attacker's Attack - Defender's Defense)</li>
-                    <li>- Energy drains based on damage difference (max 2 per tick)</li>
-                    <li>- Energy drains 3 when a card is defeated</li>
-                  </ul>
-                </div>
-                <div className="instruction-section">
-                  <h3>Card Management</h3>
-                  <ul>
-                    <li>Players maintain 4 cards total (hand + battlefield)</li>
-                    <li>New cards are drawn automatically when needed</li>
-                    <li>Each card shows its current HP percentage and stats</li>
-                  </ul>
-                </div>
-                <div className="instruction-section">
-                  <h3>Winning the Game</h3>
-                  <ul>
-                    <li>Reduce your opponent's energy to 0 to win</li>
-                    <li>Strategic card placement is key - balance Attack and Defense</li>
-                  </ul>
-                </div>
-                <button
-                  className="close-instructions"
-                  onClick={() => setShowInstructions(false)}
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-          )}
-
-          {gameState.gameStatus === 'finished' ? (
+          {gameState?.gameStatus === 'finished' ? (
             <GameOver
               isVictory={isVictory}
-              isTie={false} // Ties are not possible without round limit
-              playerEnergy={gameState.players.player.energy}
-              opponentEnergy={gameState.players.opponent.energy}
+              isTie={false}
+              playerEnergy={playerEnergy ?? 0}
+              opponentEnergy={opponentEnergy ?? 0}
               onPlayAgain={() => {
-                setGameState({
-                  players: {
-                    player: {
-                      id: 'player',
-                      energy: MAX_ENERGY,
-                      deck: [],
-                      hand: getInitialHand(4).map(card => ({
-                        ...card,
-                        maxHp: card.maxHp || card.hp
-                      }))
-                    },
-                    opponent: {
-                      id: 'opponent',
-                      energy: MAX_ENERGY,
-                      deck: [],
-                      hand: getInitialHand(4).map(card => ({
-                        ...card,
-                        maxHp: card.maxHp || card.hp
-                      }))
-                    }
-                  },
-                  battlefield: {
-                    player: [],
-                    opponent: []
-                  },
-                  currentTurn: 'player',
-                  gameStatus: 'waiting',
-                  playerMaxHealth: MAX_ENERGY,
-                  opponentMaxHealth: MAX_ENERGY
-                });
+                setRoomId(null);
+                setPlayerRole(null);
+                setGameState(null);
                 setCombatLog([]);
                 setKillCount({ player: 0, opponent: 0 });
               }}
             />
           ) : (
-            <GameBoard
-              gameState={gameState}
-              onCardPlay={handleCardPlay}
-              setGameState={setGameState}
-              playerInfo={playerInfo}
-              opponentInfo={opponentInfo}
-              combatLog={combatLog}
-              addCombatLogEntry={addCombatLogEntry}
-              killCount={killCount}
-            />
+            <>
+              <div style={{ marginBottom: '20px' }}>
+                <p><strong>Room ID:</strong> {roomId} <button onClick={() => navigator.clipboard.writeText(roomId || '')}>Copy</button></p>
+                <p><strong>Your Role:</strong> {playerRole}</p>
+                <p><strong>Player 1 Joined:</strong> {(playerRole === 'player1' && roomId) || (gameState?.players.player) ? 'Yes' : 'No'}</p>
+                <p><strong>Player 2 Joined:</strong> {gameState?.players.opponent ? 'Yes' : 'No'}</p>
+                <p><strong>Current Game State:</strong> {gameState?.gameStatus || 'Not started'}</p>
+              </div>
+
+              {gameState && playerRole && (
+                <GameBoard
+                  gameState={gameState}
+                  onCardPlay={handleCardPlay}
+                  setGameState={setGameState}
+                  playerInfo={playerRole === 'player1' ? player1Info : player2Info}
+                  opponentInfo={playerRole === 'player1' ? player2Info : player1Info}
+                  combatLog={combatLog}
+                  addCombatLogEntry={addCombatLogEntry}
+                  killCount={killCount}
+                  playerRole={playerRole}
+                  roomId={roomId}
+                  socket={socket}
+                />
+              )}
+            </>
           )}
+          {dialogMessage && <Dialog message={dialogMessage} />}
         </div>
       </div>
     </DndProvider>
