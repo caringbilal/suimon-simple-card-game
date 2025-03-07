@@ -26,6 +26,7 @@ interface GameBoardProps {
   playerRole: 'player1' | 'player2';
   roomId: string | null;
   socket: Socket;
+  onCardDefeated: (defeatedPlayerKey: 'player' | 'opponent') => void;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({
@@ -40,6 +41,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
   playerRole,
   roomId,
   socket,
+  onCardDefeated,
 }) => {
   const [attackingCard, setAttackingCard] = useState<string | null>(null);
   const [defendingCard, setDefendingCard] = useState<string | null>(null);
@@ -48,58 +50,116 @@ const GameBoard: React.FC<GameBoardProps> = ({
   const playerKey = playerRole === 'player1' ? 'player' : 'opponent';
   const opponentKey = playerRole === 'player1' ? 'opponent' : 'player';
 
-  // Handle combat between cards on the battlefield
+  // Handle combat between cards on the battlefield with sequential damage
   const handleCombat = () => {
-    const playerCard = gameState.battlefield[playerKey][0];
-    const opponentCard = gameState.battlefield[opponentKey][0];
+    const currentPlayerKey = gameState.currentTurn;
+    const opponentPlayerKey = currentPlayerKey === 'player' ? 'opponent' : 'player';
 
-    if (!playerCard || !opponentCard) return;
+    const currentPlayerCard = gameState.battlefield[currentPlayerKey][0];
+    const opponentCard = gameState.battlefield[opponentPlayerKey][0];
 
-    const playerDamage = Math.max(1, playerCard.attack - opponentCard.defense);
-    const opponentDamage = Math.max(1, opponentCard.attack - playerCard.defense);
+    if (!currentPlayerCard || !opponentCard) return;
 
-    playerCard.hp -= opponentDamage;
-    opponentCard.hp -= playerDamage;
+    // Calculate damage
+    const currentPlayerDamage = Math.max(1, currentPlayerCard.attack - opponentCard.defense);
+    const opponentDamage = Math.max(1, opponentCard.attack - currentPlayerCard.defense);
 
-    const energyLossFactor = 5;
-    const playerEnergyLoss = Math.min(opponentDamage * energyLossFactor, gameState.players[playerKey].energy);
-    const opponentEnergyLoss = Math.min(playerDamage * energyLossFactor, gameState.players[opponentKey].energy);
+    // Step 1: Apply damage to the opponent first
+    opponentCard.hp -= currentPlayerDamage;
+    const energyLossFactor = 5; // Adjust based on your game's balance
+    const opponentEnergyLoss = Math.min(currentPlayerDamage * energyLossFactor, gameState.players[opponentPlayerKey].energy);
+    const newOpponentEnergy = gameState.players[opponentPlayerKey].energy - opponentEnergyLoss;
+
+    if (newOpponentEnergy <= 0) {
+      // Opponent loses, game ends
+      const updatedState: GameState = {
+        ...gameState,
+        players: {
+          ...gameState.players,
+          [opponentPlayerKey]: {
+            ...gameState.players[opponentPlayerKey],
+            energy: newOpponentEnergy,
+          },
+        },
+        battlefield: {
+          ...gameState.battlefield,
+          [opponentPlayerKey]: opponentCard.hp > 0 ? [opponentCard] : [],
+        },
+        gameStatus: 'finished',
+      };
+      setGameState(updatedState);
+      socket.emit('updateGameState', roomId, updatedState);
+      return;
+    }
+
+    // Step 2: If opponent survives, apply damage to the current player
+    currentPlayerCard.hp -= opponentDamage;
+    const currentPlayerEnergyLoss = Math.min(opponentDamage * energyLossFactor, gameState.players[currentPlayerKey].energy);
+    const newCurrentPlayerEnergy = gameState.players[currentPlayerKey].energy - currentPlayerEnergyLoss;
+
+    if (newCurrentPlayerEnergy <= 0) {
+      // Current player loses, game ends
+      const updatedState: GameState = {
+        ...gameState,
+        players: {
+          ...gameState.players,
+          [currentPlayerKey]: {
+            ...gameState.players[currentPlayerKey],
+            energy: newCurrentPlayerEnergy,
+          },
+          [opponentPlayerKey]: {
+            ...gameState.players[opponentPlayerKey],
+            energy: newOpponentEnergy,
+          },
+        },
+        battlefield: {
+          ...gameState.battlefield,
+          [currentPlayerKey]: currentPlayerCard.hp > 0 ? [currentPlayerCard] : [],
+          [opponentPlayerKey]: opponentCard.hp > 0 ? [opponentCard] : [],
+        },
+        gameStatus: 'finished',
+      };
+      setGameState(updatedState);
+      socket.emit('updateGameState', roomId, updatedState);
+      return;
+    }
+
+    // Step 3: If neither loses, update battlefield and switch turn
+    let updatedBattlefield = { ...gameState.battlefield };
+    if (currentPlayerCard.hp <= 0) {
+      updatedBattlefield[currentPlayerKey] = [];
+      onCardDefeated(currentPlayerKey);
+      addCombatLogEntry(`${currentPlayerCard.name} has been defeated!`, 'death');
+    }
+    if (opponentCard.hp <= 0) {
+      updatedBattlefield[opponentPlayerKey] = [];
+      onCardDefeated(opponentPlayerKey);
+      addCombatLogEntry(`${opponentCard.name} has been defeated!`, 'death');
+    }
 
     const updatedState: GameState = {
       ...gameState,
       players: {
         ...gameState.players,
-        [playerKey]: {
-          ...gameState.players[playerKey],
-          energy: gameState.players[playerKey].energy - playerEnergyLoss,
+        [currentPlayerKey]: {
+          ...gameState.players[currentPlayerKey],
+          energy: newCurrentPlayerEnergy,
         },
-        [opponentKey]: {
-          ...gameState.players[opponentKey],
-          energy: gameState.players[opponentKey].energy - opponentEnergyLoss,
+        [opponentPlayerKey]: {
+          ...gameState.players[opponentPlayerKey],
+          energy: newOpponentEnergy,
         },
       },
-      battlefield: {
-        ...gameState.battlefield,
-        [playerKey]: playerCard.hp > 0 ? [playerCard] : [],
-        [opponentKey]: opponentCard.hp > 0 ? [opponentCard] : [],
-      },
-      currentTurn: playerCard.hp <= 0 ? opponentKey : playerKey,
-      gameStatus: gameState.players[playerKey].energy <= 0 || gameState.players[opponentKey].energy <= 0 ? 'finished' : 'playing',
+      battlefield: updatedBattlefield,
+      currentTurn: opponentPlayerKey, // Switch turn
+      gameStatus: 'playing',
     };
 
-    if (playerCard.hp <= 0) {
-      addCombatLogEntry(`${playerCard.name} has been defeated!`, 'death');
-    }
-    if (opponentCard.hp <= 0) {
-      addCombatLogEntry(`${opponentCard.name} has been defeated!`, 'death');
-    }
-    addCombatLogEntry(`Player loses ${playerEnergyLoss} energy`, 'energy');
+    addCombatLogEntry(`Player loses ${currentPlayerEnergyLoss} energy`, 'energy');
     addCombatLogEntry(`Opponent loses ${opponentEnergyLoss} energy`, 'energy');
 
     setGameState(updatedState);
-    if (roomId) {
-      socket.emit('updateGameState', roomId, updatedState);
-    }
+    socket.emit('updateGameState', roomId, updatedState);
   };
 
   // Automatically trigger combat every 500ms if both players have cards on the battlefield
@@ -304,8 +364,8 @@ const GameBoard: React.FC<GameBoardProps> = ({
           <img src={playerInfo.avatar} alt="Player" className="profile-picture" />
           <span className="player-name">
             {playerInfo.name}
-            <span className={`turn-indicator ${gameState.currentTurn === playerKey && gameState.battlefield[playerKey].length === 0 ? 'active' : 'waiting'}`}>
-              {gameState.currentTurn === playerKey && gameState.battlefield[playerKey].length === 0 ? 'Your Turn' : 'Please Wait...'}
+            <span className={`turn-indicator ${gameState.currentTurn === playerKey ? 'active' : 'waiting'}`}>
+              {gameState.currentTurn === playerKey ? 'Your Turn' : 'Please Wait...'}
             </span>
           </span>
         </div>

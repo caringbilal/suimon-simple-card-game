@@ -9,8 +9,8 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { io, Socket } from 'socket.io-client';
 import PlayerProfile from './assets/ui/Player_Profile.jpg';
 
-// Define the server URL using your laptop's IP address
-const SERVER_URL = 'http://192.168.70.105:3000'; // Ensure this matches your laptop's IP
+// Define the server URL (update this to your laptop's IP address if needed)
+const SERVER_URL = 'http://192.168.70.105:3000'; // Replace with your server's IP
 const socket: Socket = io(SERVER_URL, {
   transports: ['websocket'],
   reconnection: true,
@@ -18,7 +18,7 @@ const socket: Socket = io(SERVER_URL, {
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
   timeout: 20000,
-  autoConnect: true, // Enable auto-connect by default
+  autoConnect: true,
 });
 
 // Player info constants
@@ -153,10 +153,11 @@ function App() {
       playerRole === 'player1'
         ? gameState.currentTurn === 'player'
         : gameState.currentTurn === 'opponent';
-    if (!isPlayerTurn || gameState.battlefield[playerRole === 'player1' ? 'player' : 'opponent'].length > 0)
-      return;
+    // Only check if it's the player's turn, allow playing cards regardless of battlefield state
+    if (!isPlayerTurn) return;
 
     const playerKey = playerRole === 'player1' ? 'player' : 'opponent';
+    const opponentKey = playerKey === 'player' ? 'opponent' : 'player';
     const updatedHand = gameState.players[playerKey].hand.filter((c) => c.id !== card.id);
     const updatedBattlefield = { ...gameState.battlefield, [playerKey]: [card] };
     const totalCards = updatedHand.length + updatedBattlefield[playerKey].length;
@@ -171,7 +172,7 @@ function App() {
         [playerKey]: { ...gameState.players[playerKey], hand: finalHand },
       },
       battlefield: updatedBattlefield,
-      currentTurn: playerRole === 'player1' ? 'opponent' : 'player',
+      currentTurn: opponentKey, // Switch turn after playing a card
       gameStatus: 'playing',
     };
 
@@ -179,12 +180,13 @@ function App() {
     socket.emit('updateGameState', roomId, newState);
   };
 
-  // Calculate victory condition
+  // Calculate victory condition based on player role
   const opponentEnergy = gameState?.players?.opponent?.energy;
   const playerEnergy = gameState?.players?.player?.energy;
   const isVictory =
     opponentEnergy !== undefined && playerEnergy !== undefined
-      ? opponentEnergy <= 0 && playerEnergy > 0
+      ? (playerRole === 'player1' && opponentEnergy <= 0 && playerEnergy > 0) ||
+        (playerRole === 'player2' && playerEnergy <= 0 && opponentEnergy > 0)
       : false;
 
   // Dialog component for feedback
@@ -354,6 +356,12 @@ function App() {
                   playerRole={playerRole}
                   roomId={roomId}
                   socket={socket}
+                  onCardDefeated={(defeatedPlayerKey: 'player' | 'opponent') => {
+                    setKillCount((prev) => ({
+                      ...prev,
+                      [defeatedPlayerKey === 'player' ? 'opponent' : 'player']: prev[defeatedPlayerKey === 'player' ? 'opponent' : 'player'] + 1,
+                    }));
+                  }}
                 />
               )}
             </>
@@ -364,5 +372,4 @@ function App() {
     </DndProvider>
   );
 }
-
 export default App;
