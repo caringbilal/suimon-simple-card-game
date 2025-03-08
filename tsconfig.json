@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "esnext", // Align with modern JavaScript for React
     "lib": [
       "dom",
       "dom.iterable",
@@ -21,6 +21,7 @@
     "jsx": "react-jsx"
   },
   "include": [
-    "src"
+    "src",
+    ".storybook" // Add .storybook to include main.ts
   ]
 }
