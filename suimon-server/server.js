@@ -14,7 +14,8 @@ const io = socketIo(server, {
   connectTimeout: 10000,
   reconnection: true,
   reconnectionAttempts: 5,
-  reconnectionDelay: 1000
+  reconnectionDelay: 1000,
+  transports: ['websocket', 'polling']
 });
 
 const gameStates = {};
@@ -27,6 +28,10 @@ io.on('connection', (socket) => {
   console.log('A player connected:', socket.id);
   console.log('Current game states on connection:', JSON.stringify(gameStates, null, 2));
 
+  // Send initial connection success event
+  socket.emit('connected', { id: socket.id });
+
+  // Handle player disconnection
   socket.on('disconnect', (reason) => {
     console.log(`Player ${socket.id} disconnected. Reason: ${reason}`);
     for (const roomId in gameStates) {
@@ -40,11 +45,13 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Handle socket errors
   socket.on('error', (error) => {
     console.error(`Socket ${socket.id} error:`, error);
     socket.emit('error', 'An unexpected error occurred. Please try again.');
   });
 
+  // Create a new game room
   socket.on('createRoom', () => {
     try {
       const roomId = generateUniqueRoomId();
@@ -58,7 +65,8 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('joinRoom', (roomId) => {
+  // Join an existing game room
+  socket.on('joinRoom', async (roomId) => {
     console.log(`Player ${socket.id} attempting to join room: ${roomId}`);
 
     try {
@@ -80,16 +88,19 @@ io.on('connection', (socket) => {
         throw new Error('Room is full');
       }
 
-      socket.join(roomId);
+      // Join the room
+      await socket.join(roomId);
       room.player2 = socket.id;
       console.log(`Player 2 (${socket.id}) successfully joined room ${roomId}`);
 
       // Notify the joining player of success
       socket.emit('joinSuccess', roomId);
 
-      // Broadcast to all players in the room to start the game
-      io.to(roomId).emit('startGame', roomId);
-      console.log(`Game started in room ${roomId} with players: ${room.player1}, ${room.player2}`);
+      // Wait briefly to ensure both clients are ready, then start the game
+      setTimeout(() => {
+        io.to(roomId).emit('startGame', roomId);
+        console.log(`Game started in room ${roomId} with players: ${room.player1}, ${room.player2}`);
+      }, 1000);
 
     } catch (error) {
       console.error(`Error joining room: ${error.message}`);
@@ -97,12 +108,14 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Handle game state updates from Player 1
   socket.on('updateGameState', (roomId, newGameState) => {
     try {
       if (!gameStates[roomId]) {
         throw new Error('Room not found');
       }
 
+      // Update the server-side game state and broadcast to all players in the room
       gameStates[roomId].gameState = newGameState;
       io.to(roomId).emit('gameStateUpdate', newGameState);
       console.log(`Game state updated for room ${roomId}`);
@@ -112,13 +125,28 @@ io.on('connection', (socket) => {
       socket.emit('error', 'Failed to update game state');
     }
   });
+
+  // Heartbeat mechanism to maintain connection health
+  const heartbeat = setInterval(() => {
+    socket.emit('ping');
+  }, 25000);
+
+  socket.on('pong', () => {
+    console.log(`Received pong from ${socket.id}`);
+  });
+
+  // Clean up heartbeat on disconnect
+  socket.on('disconnect', () => {
+    clearInterval(heartbeat);
+  });
 });
 
-// Ensure the server listens on all network interfaces
+// Start the server on all network interfaces
 server.listen(3000, '0.0.0.0', () => {
   console.log('Server running on port 3000 at 0.0.0.0');
 });
 
+// Log server errors
 server.on('error', (error) => {
   console.error('Server error:', error);
 });

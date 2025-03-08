@@ -129,6 +129,12 @@ function App() {
     socket.on('connect_error', (error) => {
       console.log('Connection error:', error.message);
       setDialogMessage(`Connection failed: ${error.message}. Please try again or check network.`);
+      socket.disconnect();
+      setRoomId(null);
+      setPlayerRole(null);
+      setGameState(null);
+      setCombatLog([]);
+      setKillCount({ player: 0, opponent: 0 });
     });
 
     // Cleanup listeners on unmount
@@ -236,6 +242,7 @@ function App() {
       console.log('Attempting to reconnect...');
       socket.connect();
       setDialogMessage('Attempting to connect to server...');
+      return;
     }
 
     setDialogMessage('Joining game room...');
