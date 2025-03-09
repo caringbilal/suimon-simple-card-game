@@ -83,6 +83,51 @@
   align-items: center;
 }
 
+.game-info-panel {
+  position: fixed;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  border-radius: 15px;
+  padding: 25px;
+  width: 300px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  z-index: 1000;
+}
+
+.game-info-panel p {
+  margin: 12px 0;
+  font-size: 14px;
+  line-height: 1.4;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.game-info-panel strong {
+  color: #4CAF50;
+  margin-right: 10px;
+}
+
+.game-info-panel button {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.3s ease;
+}
+
+.game-info-panel button:hover {
+  background: #45a049;
+}
+
 /* Modern Button Styles */
 button {
   background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));

@@ -342,7 +342,7 @@ function App() {
             />
           ) : (
             <>
-              <div style={{ marginBottom: '20px' }}>
+              <div className="game-info-panel">
                 <p><strong>Room ID:</strong> {roomId} <button onClick={() => navigator.clipboard.writeText(roomId || '')}>Copy</button></p>
                 <p><strong>Your Role:</strong> {playerRole}</p>
                 <p><strong>Player 1 Joined:</strong> {(playerRole === 'player1' && roomId) || (gameState?.players.player) ? 'Yes' : 'No'}</p>
