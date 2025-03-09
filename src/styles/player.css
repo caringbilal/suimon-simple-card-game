@@ -1,5 +1,5 @@
 .health-summary-boxes {
-  position: fixed;
+  position: absolute;
   left: 20px;
   top: 50%;
   transform: translateY(-50%);
@@ -8,6 +8,7 @@
   gap: 20px;
   width: 320px;
   z-index: 100;
+  margin-left: 20px;
 }
 
 .health-summary {
@@ -21,6 +22,7 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  margin-bottom: 10px;
 }
 
 .summary-content {
