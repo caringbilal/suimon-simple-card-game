@@ -12,10 +12,16 @@ export interface CardType {
 // Player interface
 export interface Player {
   id: string;
-  //hp: number;
   energy: number;
   deck: CardType[];
   hand: CardType[];
+}
+
+// Combat log entry interface
+export interface CombatLogEntry {
+  timestamp: number;
+  message: string;
+  type: string;
 }
 
 // Single GameState interface with proper types
@@ -32,4 +38,6 @@ export interface GameState {
   gameStatus: 'waiting' | 'playing' | 'finished';
   playerMaxHealth: number;
   opponentMaxHealth: number;
+  combatLog: CombatLogEntry[]; // Added to store combat log entries
+  killCount: { player: number; opponent: number }; // Added to store kill counts
 }

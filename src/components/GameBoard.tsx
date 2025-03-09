@@ -27,7 +27,6 @@ interface GameBoardProps {
   playerRole: 'player1' | 'player2';
   roomId: string | null;
   socket: Socket;
-  onCardDefeated: (defeatedPlayerKey: 'player' | 'opponent') => void;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({
@@ -42,7 +41,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
   playerRole,
   roomId,
   socket,
-  onCardDefeated,
 }) => {
   const [attackingCard, setAttackingCard] = useState<string | null>(null);
   const [defendingCard, setDefendingCard] = useState<string | null>(null);
@@ -75,10 +73,14 @@ const GameBoard: React.FC<GameBoardProps> = ({
     const playerHpPercentage = Math.round((playerCard.hp / playerCard.maxHp) * 100);
     const opponentHpPercentage = Math.round((opponentCard.hp / opponentCard.maxHp) * 100);
 
-    addCombatLogEntry(`${playerCard.name} attacks with ${playerCard.attack} ATK vs ${opponentCard.defense} DEF`, 'combat');
-    addCombatLogEntry(`${opponentCard.name} attacks with ${opponentCard.attack} ATK vs ${playerCard.defense} DEF`, 'combat');
-    addCombatLogEntry(`${playerCard.name} takes ${opponentDamage} damage (HP: ${playerCard.hp}, ${playerHpPercentage}%)`, 'damage');
-    addCombatLogEntry(`${opponentCard.name} takes ${playerDamage} damage (HP: ${opponentCard.hp}, ${opponentHpPercentage}%)`, 'damage');
+    // Add combat log entries
+    const newCombatLog = [
+      ...gameState.combatLog,
+      { timestamp: Date.now(), message: `${playerCard.name} attacks with ${playerCard.attack} ATK vs ${opponentCard.defense} DEF`, type: 'combat' },
+      { timestamp: Date.now(), message: `${opponentCard.name} attacks with ${opponentCard.attack} ATK vs ${playerCard.defense} DEF`, type: 'combat' },
+      { timestamp: Date.now(), message: `${playerCard.name} takes ${opponentDamage} damage (HP: ${playerCard.hp}, ${playerHpPercentage}%)`, type: 'damage' },
+      { timestamp: Date.now(), message: `${opponentCard.name} takes ${playerDamage} damage (HP: ${opponentCard.hp}, ${opponentHpPercentage}%)`, type: 'damage' },
+    ];
 
     const playerWonRound = playerDamage > opponentDamage || 
                           (playerDamage === opponentDamage && playerHpPercentage > opponentHpPercentage);
@@ -107,21 +109,42 @@ const GameBoard: React.FC<GameBoardProps> = ({
     };
 
     let nextTurn: 'player' | 'opponent';
+    let updatedKillCount = { ...gameState.killCount };
     if (opponentCard.hp <= 0) {
-      onCardDefeated('opponent');
+      updatedKillCount = {
+        ...updatedKillCount,
+        player: updatedKillCount.player + 1,
+      };
       nextTurn = 'opponent';
-      addCombatLogEntry(`${opponentCard.name} has been defeated! ${opponentInfo.name}'s turn!`, 'death');
+      newCombatLog.push({
+        timestamp: Date.now(),
+        message: `${opponentCard.name} has been defeated! ${opponentInfo.name}'s turn!`,
+        type: 'death',
+      });
     } else if (playerCard.hp <= 0) {
-      onCardDefeated('player');
+      updatedKillCount = {
+        ...updatedKillCount,
+        opponent: updatedKillCount.opponent + 1,
+      };
       nextTurn = 'player';
-      addCombatLogEntry(`${playerCard.name} has been defeated! ${playerInfo.name}'s turn!`, 'death');
+      newCombatLog.push({
+        timestamp: Date.now(),
+        message: `${playerCard.name} has been defeated! ${playerInfo.name}'s turn!`,
+        type: 'death',
+      });
     } else {
       nextTurn = roundLoser;
-      addCombatLogEntry(`Both cards survived! ${roundLoser === 'player' ? playerInfo.name : opponentInfo.name}'s turn!`, 'combat');
+      newCombatLog.push({
+        timestamp: Date.now(),
+        message: `Both cards survived! ${roundLoser === 'player' ? playerInfo.name : opponentInfo.name}'s turn!`,
+        type: 'combat',
+      });
     }
 
-    addCombatLogEntry(`${roundWinner === 'player' ? playerInfo.name : opponentInfo.name} loses ${winnerEnergyLoss} energy`, 'energy');
-    addCombatLogEntry(`${roundLoser === 'player' ? playerInfo.name : opponentInfo.name} loses ${loserEnergyLoss} energy`, 'energy');
+    newCombatLog.push(
+      { timestamp: Date.now(), message: `${roundWinner === 'player' ? playerInfo.name : opponentInfo.name} loses ${winnerEnergyLoss} energy`, type: 'energy' },
+      { timestamp: Date.now(), message: `${roundLoser === 'player' ? playerInfo.name : opponentInfo.name} loses ${loserEnergyLoss} energy`, type: 'energy' }
+    );
 
     const updatedState: GameState = {
       ...gameState,
@@ -129,6 +152,8 @@ const GameBoard: React.FC<GameBoardProps> = ({
       battlefield: updatedBattlefield,
       currentTurn: nextTurn,
       gameStatus: updatedPlayers.player.energy <= 0 || updatedPlayers.opponent.energy <= 0 ? 'finished' : 'playing',
+      combatLog: newCombatLog,
+      killCount: updatedKillCount,
     };
 
     setGameState(updatedState);
@@ -191,6 +216,8 @@ const GameBoard: React.FC<GameBoardProps> = ({
       },
       playerMaxHealth: 700,
       opponentMaxHealth: 700,
+      combatLog: [],
+      killCount: { player: 0, opponent: 0 },
     };
     setGameState(newState);
     if (roomId) {
@@ -198,7 +225,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
     }
   };
 
-  // JSX remains unchanged
   return (
     <div className="game-board">
       {gameState.gameStatus === 'finished' && (
@@ -348,5 +374,4 @@ const GameBoard: React.FC<GameBoardProps> = ({
     </div>
   );
 };
-
 export default GameBoard;

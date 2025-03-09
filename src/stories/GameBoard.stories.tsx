@@ -1,65 +1,40 @@
 import React from 'react';
-import type { Meta, StoryObj } from '@storybook/react';
+import { StoryObj, Meta } from '@storybook/react';
 import GameBoard from '../components/GameBoard';
-import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-import { getInitialHand } from '../data/monsters';
-import PlayerProfile from '../assets/ui/Player_Profile.jpg';
+import { GameState, CardType } from '../types/game';
 import { Socket } from 'socket.io-client';
-import { GameState } from '../types/game';
-import './Gameboard.css';
 
-const meta: Meta<typeof GameBoard> = {
-  title: 'Game/GameBoard',
-  component: GameBoard,
-  decorators: [
-    (Story) => (
-      <DndProvider backend={HTML5Backend}>
-        <Story />
-      </DndProvider>
-    ),
-  ],
-  parameters: {
-    layout: 'fullscreen',
-    controls: {
-      expanded: true,
-    },
-  },
-  argTypes: {
-    gameState: {
-      control: 'object',
-    },
-    playerInfo: {
-      control: 'object',
-    },
-    opponentInfo: {
-      control: 'object',
-    },
-    killCount: {
-      control: 'object',
-    },
-    combatLog: {
-      control: 'object',
-    },
-  },
-};
+// Mock socket for Storybook
+const mockSocket = {
+  on: () => {},
+  off: () => {},
+  emit: () => {},
+} as unknown as Socket;
 
-export default meta;
-type Story = StoryObj<typeof GameBoard>;
+// Mock player and opponent info
+const playerInfo = { name: 'Player 1', avatar: 'https://via.placeholder.com/50' };
+const opponentInfo = { name: 'Player 2', avatar: 'https://via.placeholder.com/50' };
 
+// Mock GameState with combatLog and killCount
 const mockGameState: GameState = {
   players: {
     player: {
       id: 'player1',
       energy: 700,
       deck: [],
-      hand: getInitialHand(4),
+      hand: [
+        { id: 'card1', name: 'Card 1', attack: 30, defense: 20, hp: 50, maxHp: 50, imageUrl: 'https://via.placeholder.com/150' },
+        { id: 'card2', name: 'Card 2', attack: 25, defense: 15, hp: 40, maxHp: 40, imageUrl: 'https://via.placeholder.com/150' },
+      ],
     },
     opponent: {
       id: 'player2',
       energy: 700,
       deck: [],
-      hand: getInitialHand(4),
+      hand: [
+        { id: 'card3', name: 'Card 3', attack: 35, defense: 25, hp: 60, maxHp: 60, imageUrl: 'https://via.placeholder.com/150' },
+        { id: 'card4', name: 'Card 4', attack: 20, defense: 10, hp: 30, maxHp: 30, imageUrl: 'https://via.placeholder.com/150' },
+      ],
     },
   },
   battlefield: {
@@ -67,126 +42,99 @@ const mockGameState: GameState = {
     opponent: [],
   },
   currentTurn: 'player',
-  gameStatus: 'playing' as 'playing' | 'waiting' | 'finished',
+  gameStatus: 'playing',
   playerMaxHealth: 700,
   opponentMaxHealth: 700,
+  combatLog: [
+    { timestamp: Date.now(), message: 'Mock combat log entry', type: 'info' },
+  ],
+  killCount: { player: 1, opponent: 0 },
 };
 
-const mockPlayerInfo = {
-  name: 'Player 1',
-  avatar: PlayerProfile,
+// Mock addCombatLogEntry function
+const mockAddCombatLogEntry = (message: string, type: string) => {
+  console.log('Combat log entry:', message, type);
 };
 
-const mockOpponentInfo = {
-  name: 'Player 2',
-  avatar: PlayerProfile,
+// Mock setGameState function
+const mockSetGameState = (newState: React.SetStateAction<GameState | null>) => {
+  console.log('Set game state:', newState);
 };
 
-const mockSocket = {
-  on: (event: string, callback: Function) => {},
-  off: (event: string, callback?: Function) => {},
-  emit: (event: string, ...args: any[]) => {},
-  offAny: () => {},
-  connected: true,
-  volatile: {},
-  timeout: () => mockSocket,
-  disconnected: false,
-  id: 'mock-socket-id',
-  auth: {},
-  io: {} as any,
-  nsp: '/',
-  flags: {},
-  acks: new Map(),
-  connect: () => mockSocket,
-  disconnect: () => mockSocket,
-  close: () => mockSocket,
-  send: (...args: any[]) => mockSocket,
-  compress: () => mockSocket,
-  open: () => mockSocket,
-  listeners: () => [],
-  onAny: () => mockSocket,
-  prependAny: () => mockSocket,
-  listenersAny: () => [],
-  removeListener: () => mockSocket,
-  removeAllListeners: () => mockSocket,
-  eventNames: () => [],
-  _pid: 0,
-  _lastOffset: 0,
-  recovered: false,
-  receiveBuffer: [],
-  sendBuffer: [],
-  _queue: [],
-  _queueSeq: 0,
-  _flags: {},
-  _connectTimeout: undefined,
-  _reconnection: true,
-  _reconnectionAttempts: 0,
-  _reconnectionDelay: 1000,
-  _reconnectionDelayMax: 5000,
-  _randomizationFactor: 0.5,
-  _timeout: 20000,
-  _offset: 0,
-  _callbacks: new Map(),
-  _anyListeners: [],
-  _anyOutgoingListeners: []
-} as unknown as Socket;
+// Mock onCardPlay function
+const mockOnCardPlay = (card: CardType) => {
+  console.log('Card played:', card);
+};
+
+export default {
+  title: 'Components/GameBoard',
+  component: GameBoard,
+  argTypes: {
+    playerRole: {
+      control: { type: 'select', options: ['player1', 'player2'] },
+    },
+    gameStatus: {
+      control: { type: 'select', options: ['waiting', 'playing', 'finished'] },
+    },
+  },
+} as Meta<typeof GameBoard>;
+
+type Story = StoryObj<typeof GameBoard>;
 
 export const Default: Story = {
   args: {
     gameState: mockGameState,
-    onCardPlay: (card) => console.log('Card played:', card),
-    setGameState: (newState) => console.log('New state:', newState),
-    playerInfo: mockPlayerInfo,
-    opponentInfo: mockOpponentInfo,
-    combatLog: [
-      { timestamp: Date.now(), message: 'Game started', type: 'info' },
-      { timestamp: Date.now(), message: 'Player 1\'s turn', type: 'turn' },
-    ],
-    addCombatLogEntry: (message, type) => console.log('Combat log:', message, type),
-    killCount: { player: 0, opponent: 0 },
+    onCardPlay: mockOnCardPlay,
+    setGameState: mockSetGameState,
+    playerInfo,
+    opponentInfo,
+    combatLog: mockGameState.combatLog,
+    addCombatLogEntry: mockAddCombatLogEntry,
+    killCount: mockGameState.killCount,
     playerRole: 'player1',
     roomId: 'mock-room-id',
     socket: mockSocket,
-    onCardDefeated: (defeatedPlayerKey: 'player' | 'opponent') => console.log('Card defeated:', defeatedPlayerKey)
   },
 };
 
-export const WithActiveBattle: Story = {
+export const Player2View: Story = {
   args: {
-    ...Default.args,
     gameState: {
       ...mockGameState,
-      battlefield: {
-        player: [getInitialHand(1)[0]],
-        opponent: [getInitialHand(1)[0]],
-      },
+      currentTurn: 'opponent',
     },
+    onCardPlay: mockOnCardPlay,
+    setGameState: mockSetGameState,
+    playerInfo: opponentInfo,
+    opponentInfo: playerInfo,
+    combatLog: mockGameState.combatLog,
+    addCombatLogEntry: mockAddCombatLogEntry,
+    killCount: mockGameState.killCount,
+    playerRole: 'player2',
+    roomId: 'mock-room-id',
+    socket: mockSocket,
   },
 };
 
-export const LowHealth: Story = {
+export const GameFinished: Story = {
   args: {
-    ...Default.args,
-    gameState: {
-      ...mockGameState,
-      players: {
-        player: { ...mockGameState.players.player, energy: 100 },
-        opponent: { ...mockGameState.players.opponent, energy: 150 },
-      },
-    },
-  },
-};
-
-export const GameEnding: Story = {
-  args: {
-    ...Default.args,
     gameState: {
       ...mockGameState,
       gameStatus: 'finished',
       players: {
+        ...mockGameState.players,
         player: { ...mockGameState.players.player, energy: 0 },
-        opponent: { ...mockGameState.players.opponent, energy: 300 },
       },
     },
+    onCardPlay: mockOnCardPlay,
+    setGameState: mockSetGameState,
+    playerInfo,
+    opponentInfo,
+    combatLog: mockGameState.combatLog,
+    addCombatLogEntry: mockAddCombatLogEntry,
+    killCount: mockGameState.killCount,
+    playerRole: 'player1',
+    roomId: 'mock-room-id',
+    socket: mockSocket,
   },
 };

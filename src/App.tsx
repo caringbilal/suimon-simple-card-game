@@ -41,16 +41,20 @@ function App() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [playerRole, setPlayerRole] = useState<'player1' | 'player2' | null>(null);
   const [joinRoomInput, setJoinRoomInput] = useState('');
-  const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([]);
-  const [killCount, setKillCount] = useState({ player: 0, opponent: 0 });
   const [dialogMessage, setDialogMessage] = useState<string | null>(null);
 
   // Memoized function to add combat log entries
   const addCombatLogEntry = useCallback((message: string, type: string = 'info') => {
-    setCombatLog((prevLog) => [
-      ...prevLog,
-      { timestamp: Date.now(), message, type },
-    ]);
+    setGameState((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        combatLog: [
+          ...prev.combatLog,
+          { timestamp: Date.now(), message, type },
+        ],
+      };
+    });
   }, []);
 
   // Handle Socket.IO events
@@ -89,6 +93,8 @@ function App() {
         gameStatus: 'waiting',
         playerMaxHealth: MAX_ENERGY,
         opponentMaxHealth: MAX_ENERGY,
+        combatLog: [],
+        killCount: { player: 0, opponent: 0 },
       };
       console.log('Setting initial game state:', initialState);
       setGameState(initialState);
@@ -111,8 +117,6 @@ function App() {
         setRoomId(null);
         setPlayerRole(null);
         setGameState(null);
-        setCombatLog([]);
-        setKillCount({ player: 0, opponent: 0 });
       }
     });
 
@@ -122,8 +126,6 @@ function App() {
       setRoomId(null);
       setPlayerRole(null);
       setGameState(null);
-      setCombatLog([]);
-      setKillCount({ player: 0, opponent: 0 });
     });
 
     socket.on('connect_error', (error) => {
@@ -133,8 +135,6 @@ function App() {
       setRoomId(null);
       setPlayerRole(null);
       setGameState(null);
-      setCombatLog([]);
-      setKillCount({ player: 0, opponent: 0 });
     });
 
     // Cleanup listeners on unmount
@@ -159,7 +159,6 @@ function App() {
       playerRole === 'player1'
         ? gameState.currentTurn === 'player'
         : gameState.currentTurn === 'opponent';
-    // Only check if it's the player's turn, allow playing cards regardless of battlefield state
     if (!isPlayerTurn) return;
 
     const playerKey = playerRole === 'player1' ? 'player' : 'opponent';
@@ -178,7 +177,7 @@ function App() {
         [playerKey]: { ...gameState.players[playerKey], hand: finalHand },
       },
       battlefield: updatedBattlefield,
-      currentTurn: opponentKey, // Switch turn after playing a card
+      currentTurn: opponentKey,
       gameStatus: 'playing',
     };
 
@@ -249,13 +248,11 @@ function App() {
     socket.emit('joinRoom', joinRoomInput.trim());
     console.log('Emitted joinRoom event with ID:', joinRoomInput.trim());
 
-    // Set up a timeout for room join response
     const joinTimeout = setTimeout(() => {
       setDialogMessage('Room join request timed out. Please try again or check network.');
       socket.disconnect();
     }, 15000);
 
-    // Listen for success or error
     const handleJoinSuccess = () => {
       clearTimeout(joinTimeout);
       setDialogMessage('Successfully joined the room. Game will start soon...');
@@ -270,7 +267,6 @@ function App() {
     socket.once('joinSuccess', handleJoinSuccess);
     socket.once('error', handleError);
 
-    // Cleanup listeners if unmounted
     return () => {
       socket.off('joinSuccess', handleJoinSuccess);
       socket.off('error', handleError);
@@ -336,8 +332,6 @@ function App() {
                 setRoomId(null);
                 setPlayerRole(null);
                 setGameState(null);
-                setCombatLog([]);
-                setKillCount({ player: 0, opponent: 0 });
               }}
             />
           ) : (
@@ -357,18 +351,12 @@ function App() {
                   setGameState={setGameState}
                   playerInfo={playerRole === 'player1' ? player1Info : player2Info}
                   opponentInfo={playerRole === 'player1' ? player2Info : player1Info}
-                  combatLog={combatLog}
+                  combatLog={gameState.combatLog}
                   addCombatLogEntry={addCombatLogEntry}
-                  killCount={killCount}
+                  killCount={gameState.killCount}
                   playerRole={playerRole}
                   roomId={roomId}
                   socket={socket}
-                  onCardDefeated={(defeatedPlayerKey: 'player' | 'opponent') => {
-                    setKillCount((prev) => ({
-                      ...prev,
-                      [defeatedPlayerKey === 'player' ? 'opponent' : 'player']: prev[defeatedPlayerKey === 'player' ? 'opponent' : 'player'] + 1,
-                    }));
-                  }}
                 />
               )}
             </>
@@ -379,4 +367,5 @@ function App() {
     </DndProvider>
   );
 }
+
 export default App;
