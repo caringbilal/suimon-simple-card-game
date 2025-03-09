@@ -253,26 +253,30 @@ const GameBoard: React.FC<GameBoardProps> = ({
               </div>
             </div>
           </div>
-          <div className="combat-stats-display">
-            <div className="combat-stats-title">Combat Statistics</div>
-            <div className="total-cards-info">
-              <div className="player-cards-count">
-                Player Total Cards: {gameState.players[playerKey].hand.length + gameState.battlefield[playerKey].length}
-              </div>
-              <div className="opponent-cards-count">
-                Opponent Total Cards: {gameState.players[opponentKey].hand.length + gameState.battlefield[opponentKey].length}
-              </div>
+        </div>
+      </div>
+      
+      <div className="combat-stats-container">
+        <div className="combat-stats-display">
+          <div className="combat-stats-title">Combat Statistics</div>
+          <div className="total-cards-info">
+            <div className="player-cards-count">
+              Player Total Cards: {gameState.players[playerKey].hand.length + gameState.battlefield[playerKey].length}
             </div>
-            <div className="combat-stats-content">
-              {combatLog.slice(-5).map((entry, index) => (
-                <div key={index} className={`combat-log-entry ${entry.type}`}>
-                  {entry.message}
-                </div>
-              ))}
+            <div className="opponent-cards-count">
+              Opponent Total Cards: {gameState.players[opponentKey].hand.length + gameState.battlefield[opponentKey].length}
             </div>
+          </div>
+          <div className="combat-stats-content">
+            {combatLog.slice(-5).map((entry, index) => (
+              <div key={index} className={`combat-log-entry ${entry.type}`}>
+                {entry.message}
+              </div>
+            ))}
           </div>
         </div>
       </div>
+      
       <div className={`player-area opponent ${gameState.currentTurn === opponentKey ? 'active-turn' : ''}`}>
         <div className="player-profile opponent-profile">
           <img src={opponentInfo.avatar} alt="Opponent" className="profile-picture" />
