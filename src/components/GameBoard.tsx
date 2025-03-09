@@ -4,6 +4,7 @@ import Card from './Card';
 import cardBack from '../assets/ui/card-back.png';
 import '../styles/combat.css';
 import '../styles/player.css';
+import '../styles/game-stats.css';
 import GameEndDialog from './GameEndDialog';
 import { useDrop } from 'react-dnd';
 import { Socket } from 'socket.io-client';
@@ -206,67 +207,69 @@ const GameBoard: React.FC<GameBoardProps> = ({
           onRestart={handleRestart}
         />
       )}
-      <div className="kill-counter">
-        <div className="kill-stat">
-          <span className="kill-label">Player Kills:</span>
-          <span className="kill-value">{killCount.player}</span>
+      <div className="game-stats-panel">
+        <div className="kill-counter">
+          <div className="kill-stat">
+            <span className="kill-label">Player Kills:</span>
+            <span className="kill-value">{killCount.player}</span>
+          </div>
+          <div className="kill-stat">
+            <span className="kill-label">Opponent Kills:</span>
+            <span className="kill-value">{killCount.opponent}</span>
+          </div>
         </div>
-        <div className="kill-stat">
-          <span className="kill-label">Opponent Kills:</span>
-          <span className="kill-value">{killCount.opponent}</span>
-        </div>
-      </div>
-      <div className="health-summary-boxes">
-        <div className="health-summary opponent-summary">
-          <img src={opponentInfo.avatar} alt="Opponent" className="profile-picture" />
-          <div className="summary-content">
-            <div className="summary-title">OPPONENT CARDS TOTAL HP</div>
-            <div className="summary-value">
-              {gameState.battlefield[opponentKey].reduce((total, card) => total + card.hp, 0) +
-                gameState.players[opponentKey].hand.reduce((total, card) => total + card.hp, 0)}
-              <div className="hp-bar">
-                <div
-                  className="hp-fill"
-                  style={{ width: `${(gameState.players[opponentKey].energy / gameState.opponentMaxHealth) * 100}%` }}
-                />
-                <span>{gameState.players[opponentKey].energy} Energy</span>
+        <div className="health-summary-boxes">
+          <div className="health-summary opponent-summary">
+            <img src={opponentInfo.avatar} alt="Opponent" className="profile-picture" />
+            <div className="summary-content">
+              <div className="summary-title">OPPONENT CARDS TOTAL HP</div>
+              <div className="summary-value">
+                {gameState.battlefield[opponentKey].reduce((total, card) => total + card.hp, 0) +
+                  gameState.players[opponentKey].hand.reduce((total, card) => total + card.hp, 0)}
+                <div className="hp-bar">
+                  <div
+                    className="hp-fill"
+                    style={{ width: `${(gameState.players[opponentKey].energy / gameState.opponentMaxHealth) * 100}%` }}
+                  />
+                  <span>{gameState.players[opponentKey].energy} Energy</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div className="health-summary player-summary">
-          <img src={playerInfo.avatar} alt="Player" className="profile-picture" />
-          <div className="summary-content">
-            <div className="summary-title">PLAYER CARDS TOTAL HP</div>
-            <div className="summary-value">
-              {gameState.battlefield[playerKey].reduce((total, card) => total + card.hp, 0) +
-                gameState.players[playerKey].hand.reduce((total, card) => total + card.hp, 0)}
-              <div className="hp-bar">
-                <div
-                  className="hp-fill"
-                  style={{ width: `${(gameState.players[playerKey].energy / gameState.playerMaxHealth) * 100}%` }}
-                />
-                <span>{gameState.players[playerKey].energy} Energy</span>
+          <div className="health-summary player-summary">
+            <img src={playerInfo.avatar} alt="Player" className="profile-picture" />
+            <div className="summary-content">
+              <div className="summary-title">PLAYER CARDS TOTAL HP</div>
+              <div className="summary-value">
+                {gameState.battlefield[playerKey].reduce((total, card) => total + card.hp, 0) +
+                  gameState.players[playerKey].hand.reduce((total, card) => total + card.hp, 0)}
+                <div className="hp-bar">
+                  <div
+                    className="hp-fill"
+                    style={{ width: `${(gameState.players[playerKey].energy / gameState.playerMaxHealth) * 100}%` }}
+                  />
+                  <span>{gameState.players[playerKey].energy} Energy</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div className="combat-stats-display">
-          <div className="combat-stats-title">Combat Statistics</div>
-          <div className="total-cards-info">
-            <div className="player-cards-count">
-              Player Total Cards: {gameState.players[playerKey].hand.length + gameState.battlefield[playerKey].length}
-            </div>
-            <div className="opponent-cards-count">
-              Opponent Total Cards: {gameState.players[opponentKey].hand.length + gameState.battlefield[opponentKey].length}
-            </div>
-          </div>
-          <div className="combat-stats-content">
-            {combatLog.slice(-5).map((entry, index) => (
-              <div key={index} className={`combat-log-entry ${entry.type}`}>
-                {entry.message}
+          <div className="combat-stats-display">
+            <div className="combat-stats-title">Combat Statistics</div>
+            <div className="total-cards-info">
+              <div className="player-cards-count">
+                Player Total Cards: {gameState.players[playerKey].hand.length + gameState.battlefield[playerKey].length}
               </div>
-            ))}
+              <div className="opponent-cards-count">
+                Opponent Total Cards: {gameState.players[opponentKey].hand.length + gameState.battlefield[opponentKey].length}
+              </div>
+            </div>
+            <div className="combat-stats-content">
+              {combatLog.slice(-5).map((entry, index) => (
+                <div key={index} className={`combat-log-entry ${entry.type}`}>
+                  {entry.message}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
