@@ -23,18 +23,13 @@ const socket: Socket = io(SERVER_URL, {
   forceNew: true
 });
 
-// App component
-
-
-// App component
+// Player info constants
+const player1Info = { name: 'Player 1', avatar: PlayerProfile };
+const player2Info = { name: 'Player 2', avatar: OpponentProfile };
 
 function App() {
   // Game constants
   const MAX_ENERGY = 700;
-  
-  // Player info constants
-  const player1Info = { name: 'Player 1', avatar: PlayerProfile };
-  const player2Info = { name: 'Player 2', avatar: PlayerProfile };
 
   // State variables
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -78,10 +73,8 @@ function App() {
   useEffect(() => {
     // Initialize socket connection
     initializeSocket();
-
     socket.on('connect', () => {
       console.log('Connected to server at', SERVER_URL);
-      setDialogMessage(null);
     });
 
     socket.on('roomCreated', (id: string) => {
@@ -139,15 +132,6 @@ function App() {
         setPlayerRole(null);
         setGameState(null);
       }
-    });
-
-    socket.on('connect_error', (error) => {
-      console.log('Connection error:', error.message);
-      setDialogMessage(`Connection failed: ${error.message}. Please try again or check network.`);
-      socket.disconnect();
-      setRoomId(null);
-      setPlayerRole(null);
-      setGameState(null);
     });
 
     socket.on('playerDisconnected', () => {
