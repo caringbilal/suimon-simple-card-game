@@ -103,5 +103,9 @@ export const monsterCards = [
 
 export const getInitialHand = (count: number = 4) => {
   const shuffled = [...monsterCards].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
+  return shuffled.slice(0, count).map(card => ({
+    ...card,
+    hp: card.maxHp
+  }));
 };
+

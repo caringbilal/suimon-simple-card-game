@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
+import React, { useState, useEffect, Dispatch, SetStateAction, useCallback } from 'react';
 import { GameState, CardType } from '../types/game';
 import Card from './Card';
 import cardBack from '../assets/ui/card-back.png';
@@ -27,9 +27,10 @@ interface GameBoardProps {
   playerRole: 'player1' | 'player2';
   roomId: string | null;
   socket: Socket;
+  onCardDefeated?: (defeatedPlayerKey: 'player' | 'opponent') => void;
 }
 
-const GameBoard: React.FC<GameBoardProps> = ({
+export default React.memo<GameBoardProps>(({
   gameState,
   onCardPlay,
   setGameState,
@@ -41,6 +42,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
   playerRole,
   roomId,
   socket,
+  onCardDefeated,
 }) => {
   const [attackingCard, setAttackingCard] = useState<string | null>(null);
   const [defendingCard, setDefendingCard] = useState<string | null>(null);
@@ -59,7 +61,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
   }, [socket, setGameState]);
 
   // Handle combat (only for Player 1)
-  const handleCombat = () => {
+  const handleCombat = useCallback(() => {
     const playerCard = gameState.battlefield.player[0];
     const opponentCard = gameState.battlefield.opponent[0];
 
@@ -113,7 +115,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
     if (opponentCard.hp <= 0) {
       updatedKillCount = {
         ...updatedKillCount,
-        player: updatedKillCount.player + 1,
+        player: updatedKillCount.player + 1
       };
       nextTurn = 'opponent';
       newCombatLog.push({
@@ -121,10 +123,11 @@ const GameBoard: React.FC<GameBoardProps> = ({
         message: `${opponentCard.name} has been defeated! ${opponentInfo.name}'s turn!`,
         type: 'death',
       });
+      onCardDefeated?.('opponent');
     } else if (playerCard.hp <= 0) {
       updatedKillCount = {
         ...updatedKillCount,
-        opponent: updatedKillCount.opponent + 1,
+        opponent: updatedKillCount.opponent + 1
       };
       nextTurn = 'player';
       newCombatLog.push({
@@ -132,6 +135,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
         message: `${playerCard.name} has been defeated! ${playerInfo.name}'s turn!`,
         type: 'death',
       });
+      onCardDefeated?.('player');
     } else {
       nextTurn = roundLoser;
       newCombatLog.push({
@@ -140,11 +144,6 @@ const GameBoard: React.FC<GameBoardProps> = ({
         type: 'combat',
       });
     }
-
-    newCombatLog.push(
-      { timestamp: Date.now(), message: `${roundWinner === 'player' ? playerInfo.name : opponentInfo.name} loses ${winnerEnergyLoss} energy`, type: 'energy' },
-      { timestamp: Date.now(), message: `${roundLoser === 'player' ? playerInfo.name : opponentInfo.name} loses ${loserEnergyLoss} energy`, type: 'energy' }
-    );
 
     const updatedState: GameState = {
       ...gameState,
@@ -160,7 +159,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
     if (roomId) {
       socket.emit('updateGameState', roomId, updatedState);
     }
-  };
+  }, [gameState, onCardDefeated, opponentInfo.name, playerInfo.name, roomId, socket, setGameState]);
 
   // Combat interval (Player 1 only)
   useEffect(() => {
@@ -172,7 +171,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
       }, 500);
       return () => clearInterval(fightInterval);
     }
-  }, [gameState, playerRole]);
+  }, [playerRole, gameState, handleCombat]);
 
   // Combat animations
   useEffect(() => {
@@ -192,8 +191,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
   }, [gameState.battlefield, playerKey, opponentKey]);
 
   // Card drop handling
-  const [{ isOver }, dropRef] = useDrop<CardType, void, { isOver: boolean }>({
-    accept: 'CARD',
+  const [{ isOver }, dropRef] = useDrop<CardType, void, { isOver: boolean }>({    accept: 'CARD',
     drop: (item) => {
       const isPlayerTurn = playerRole === 'player1' ? gameState.currentTurn === 'player' : gameState.currentTurn === 'opponent';
       if (isPlayerTurn) onCardPlay(item);
@@ -205,7 +203,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
   });
 
   // Restart game
-  const handleRestart = () => {
+  const handleRestart = useCallback(() => {
     const newState: GameState = {
       gameStatus: 'waiting',
       currentTurn: 'player',
@@ -223,7 +221,7 @@ const GameBoard: React.FC<GameBoardProps> = ({
     if (roomId) {
       socket.emit('updateGameState', roomId, newState);
     }
-  };
+  }, [gameState.players.player.hand, gameState.players.opponent.hand, roomId, socket, setGameState]);
 
   return (
     <div className="game-board">
@@ -373,5 +371,4 @@ const GameBoard: React.FC<GameBoardProps> = ({
       </div>
     </div>
   );
-};
-export default GameBoard;
+});

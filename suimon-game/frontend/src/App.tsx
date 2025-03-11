@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
-import GameBoard from './components/GameBoard';
-import GameOver from './components/GameOver';
+import GameBoard from '@components/GameBoard';
+import GameOver from '@components/GameOver';
 import { GameState, CardType } from './types/game';
-import { getInitialHand } from './data/monsters';
+import { getInitialHand } from '@data/monsters';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { io, Socket } from 'socket.io-client';
 import PlayerProfile from './assets/ui/Player_Profile.jpg';
 import OpponentProfile from './assets/ui/AIPlayer_Profile.jpg';
 
-// Define the server URL (update this to your laptop's IP address if needed)
-const SERVER_URL = 'http://192.168.70.105:3000'; // Replace with your server's IP
+// Define the server URL for AWS deployment
+const SERVER_URL = process.env.REACT_APP_API_URL || 'http://34.209.16.106:3002'; // AWS EC2 instance URL
 const socket: Socket = io(SERVER_URL, {
   transports: ['websocket', 'polling'],
   reconnection: true,
@@ -99,8 +99,8 @@ function App() {
       }
       const initialState: GameState = {
         players: {
-          player: { id: 'player1', energy: MAX_ENERGY, deck: [], hand: getInitialHand(4) },
-          opponent: { id: 'player2', energy: MAX_ENERGY, deck: [], hand: getInitialHand(4) },
+          player: { id: 'player1', energy: MAX_ENERGY, deck: [], hand: getInitialHand() },
+          opponent: { id: 'player2', energy: MAX_ENERGY, deck: [], hand: getInitialHand() },
         },
         battlefield: { player: [], opponent: [] },
         currentTurn: 'player',
@@ -181,7 +181,7 @@ function App() {
     const updatedBattlefield = { ...gameState.battlefield, [playerKey]: [card] };
     const totalCards = updatedHand.length + updatedBattlefield[playerKey].length;
     const cardsToDraw = Math.max(0, 4 - totalCards);
-    const newCards = getInitialHand(cardsToDraw);
+    const newCards = getInitialHand(cardsToDraw).map(card => ({ ...card, hp: card.maxHp }));
     const finalHand = [...updatedHand, ...newCards];
 
     const newState: GameState = {
@@ -197,6 +197,29 @@ function App() {
 
     setGameState(newState);
     socket.emit('updateGameState', roomId, newState);
+  };
+
+  // Handle card defeat logic
+  const handleCardDefeated = (defeatedPlayerKey: 'player' | 'opponent') => {
+    if (!gameState || !roomId) return;
+
+    setGameState(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        killCount: {
+          ...prev.killCount,
+          [defeatedPlayerKey]: prev.killCount[defeatedPlayerKey] + 1
+        },
+        players: {
+          ...prev.players,
+          [defeatedPlayerKey]: {
+            ...prev.players[defeatedPlayerKey],
+            energy: prev.players[defeatedPlayerKey].energy - 50
+          }
+        }
+      };
+    });
   };
 
   // Calculate victory condition based on player role
@@ -371,6 +394,7 @@ function App() {
                   playerRole={playerRole}
                   roomId={roomId}
                   socket={socket}
+                  onCardDefeated={handleCardDefeated}
                 />
               )}
             </>
