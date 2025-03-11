@@ -4,10 +4,23 @@ const socketIo = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
+
+// Enable CORS for all routes
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  next();
+});
+
+// Define PORT constant once - using a different port to avoid conflicts
+const PORT = process.env.PORT || 3002;
+
 const io = socketIo(server, {
   cors: {
-    origin: "*", // Allow all origins for testing; restrict in production
-    methods: ["GET", "POST"]
+    origin: '*',
+    methods: ['GET', 'POST'],
+    credentials: true
   },
   pingTimeout: 60000,
   pingInterval: 25000,
@@ -141,12 +154,12 @@ io.on('connection', (socket) => {
   });
 });
 
-// Start the server on all network interfaces
-server.listen(3000, '0.0.0.0', () => {
-  console.log('Server running on port 3000 at 0.0.0.0');
-});
-
 // Log server errors
 server.on('error', (error) => {
   console.error('Server error:', error);
+});
+
+// Start the server (only once at the end of the file)
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server is running on port ${PORT}`);
 });

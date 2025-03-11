@@ -28,6 +28,7 @@ const player1Info = { name: 'Player 1', avatar: PlayerProfile };
 const player2Info = { name: 'Player 2', avatar: OpponentProfile };
 
 function App() {
+  console.log('App component is rendering');
   // Game constants
   const MAX_ENERGY = 700;
 
