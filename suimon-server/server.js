@@ -141,9 +141,12 @@ io.on('connection', (socket) => {
   });
 });
 
+// Define a different port to avoid conflicts with other servers
+const PORT = process.env.PORT || 3001;
+
 // Start the server on all network interfaces
-server.listen(3000, '0.0.0.0', () => {
-  console.log('Server running on port 3000 at 0.0.0.0');
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT} at 0.0.0.0`);
 });
 
 // Log server errors

@@ -27,6 +27,7 @@ interface GameBoardProps {
   playerRole: 'player1' | 'player2';
   roomId: string | null;
   socket: Socket;
+  onCardDefeated: (defeatedPlayerKey: 'player' | 'opponent') => void;
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({

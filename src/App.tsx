@@ -11,7 +11,7 @@ import PlayerProfile from './assets/ui/Player_Profile.jpg';
 import OpponentProfile from './assets/ui/AIPlayer_Profile.jpg';
 
 // Define the server URL (update this to your laptop's IP address if needed)
-const SERVER_URL = 'http://192.168.70.105:3000'; // Replace with your server's IP
+const SERVER_URL = 'http://34.209.16.106:3002'; // Replace with your server's IP
 const socket: Socket = io(SERVER_URL, {
   transports: ['websocket', 'polling'],
   reconnection: true,
@@ -34,7 +34,7 @@ function App() {
   
   // Player info constants
   const player1Info = { name: 'Player 1', avatar: PlayerProfile };
-  const player2Info = { name: 'Player 2', avatar: PlayerProfile };
+  const player2Info = { name: 'Player 2', avatar: OpponentProfile };
 
   // State variables
   const [gameState, setGameState] = useState<GameState | null>(null);
