@@ -45,19 +45,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Configure Amplify when the component mounts
   useEffect(() => {
-    // Configure Amplify with your Cognito settings
-    // These values should be stored in environment variables in production
     Amplify.configure({
       Auth: {
         Cognito: {
           userPoolId: process.env.REACT_APP_USER_POOL_ID || '',
           userPoolClientId: process.env.REACT_APP_USER_POOL_CLIENT_ID || '',
+          signUpVerificationMethod: 'code',
           loginWith: {
             oauth: {
               domain: process.env.REACT_APP_COGNITO_DOMAIN || '',
               scopes: ['email', 'profile', 'openid'],
-              redirectSignIn: [process.env.REACT_APP_REDIRECT_SIGN_IN || window.location.origin],
-              redirectSignOut: [process.env.REACT_APP_REDIRECT_SIGN_OUT || window.location.origin],
+              redirectSignIn: [process.env.REACT_APP_REDIRECT_SIGN_IN || ''],
+              redirectSignOut: [process.env.REACT_APP_REDIRECT_SIGN_OUT || ''],
               responseType: 'code'
             }
           }
@@ -69,7 +68,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkUser();
 
     // Set up Hub listener for auth events
-    const listener = (data: any) => {
+    const listener = (data: { payload: { event: string; data?: any } }) => {
       switch (data.payload.event) {
         case 'signIn':
           console.log('User signed in');
@@ -96,24 +95,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const checkUser = async () => {
     setIsLoading(true);
     try {
+      console.log('Checking user authentication...');
       const currentUser = await getCurrentUser();
       const session = await fetchAuthSession();
       const idToken = session.tokens?.idToken;
       
       if (idToken) {
         const attributes = idToken.payload;
+        if (!attributes.sub || !attributes.email) {
+          throw new Error('Required user attributes are missing');
+        }
         setUser({
           username: currentUser.username,
           email: attributes.email as string,
           sub: attributes.sub as string,
-          name: attributes.name as string | undefined,
-          picture: attributes.picture as string | undefined,
+          name: (attributes.name as string) || undefined,
+          picture: (attributes.picture as string) || undefined,
         });
+        console.log('User authenticated:', currentUser.username);
         setError(null);
       }
     } catch (error) {
-      console.log('No authenticated user', error);
+      console.error('Authentication error:', error);
       setUser(null);
+      setError(error instanceof Error ? error.message : 'Authentication failed');
     } finally {
       setIsLoading(false);
     }
@@ -122,8 +127,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Function to sign in with Google
   const signInWithGoogle = async () => {
     try {
+      console.log('Attempting to sign in with Google...');
       setError(null);
       await signInWithRedirect({ provider: 'Google' });
+      console.log('Redirecting to Google sign-in...');
     } catch (error) {
       console.error('Error signing in with Google', error);
       setError('Failed to sign in with Google. Please try again.');
@@ -133,8 +140,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Function to sign out
   const signOutUser = async () => {
     try {
+      console.log('Signing out user...');
       await signOut();
       setUser(null);
+      console.log('User signed out');
     } catch (error) {
       console.error('Error signing out', error);
       setError('Failed to sign out. Please try again.');
