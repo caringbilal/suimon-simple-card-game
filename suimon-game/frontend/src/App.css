@@ -1,3 +1,5 @@
+@import './styles/login.css';
+
 /* Base styles */
 :root {
   --primary-color: #2ecc71;

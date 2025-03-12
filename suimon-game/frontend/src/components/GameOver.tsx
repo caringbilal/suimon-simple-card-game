@@ -1,37 +1,42 @@
 import React from 'react';
-import '../styles/gameOver.css'; // Adjust the path as needed
+import '../styles/gameOver.css';
 
 interface GameOverProps {
-  isVictory: boolean;
-  isTie: boolean;
-  playerEnergy: number;
-  opponentEnergy: number;
+  winner: 'player' | 'opponent';
+  playerInfo: { name: string; avatar: string };
+  opponentInfo: { name: string; avatar: string };
+  killCount: { player: number; opponent: number };
   onPlayAgain: () => void;
 }
 
-const GameOver: React.FC<GameOverProps> = ({ isVictory, isTie, playerEnergy, opponentEnergy, onPlayAgain }) => {
-  console.log(`GameOver props: isVictory=${isVictory}, isTie=${isTie}, playerEnergy=${playerEnergy}, opponentEnergy=${opponentEnergy}`);
+const GameOver: React.FC<GameOverProps> = ({ winner, playerInfo, opponentInfo, killCount, onPlayAgain }) => {
+  const isVictory = winner === 'player';
+  
   return (
     <div className="game-over-overlay">
       <div className="game-over-content">
-        <h1 className={`game-over-title ${isVictory ? 'victory' : isTie ? '' : 'defeat'}`}>
-          {isVictory ? 'VICTORY!' : isTie ? 'TIE!' : 'DEFEAT!'}
+        <h1 className={`game-over-title ${isVictory ? 'victory' : 'defeat'}`}>
+          {isVictory ? 'VICTORY!' : 'DEFEAT!'}
         </h1>
         <p className="game-over-message">
           {isVictory
             ? 'Congratulations! You have won the battle!'
-            : isTie
-            ? 'The battle ended in a tie!'
             : 'Better luck next time! The opponent was stronger this time.'}
         </p>
         <div className="game-over-stats">
           <div className="stat-item">
-            <span className="stat-label">YOUR ENERGY</span>
-            <span className="stat-value">{playerEnergy}</span>
+            <img src={playerInfo.avatar} alt="Player" className="profile-picture" />
+            <div className="stat-details">
+              <span className="stat-label">{playerInfo.name}</span>
+              <span className="stat-value">Kills: {killCount.player}</span>
+            </div>
           </div>
           <div className="stat-item">
-            <span className="stat-label">OPPONENT ENERGY</span>
-            <span className="stat-value">{opponentEnergy}</span>
+            <img src={opponentInfo.avatar} alt="Opponent" className="profile-picture" />
+            <div className="stat-details">
+              <span className="stat-label">{opponentInfo.name}</span>
+              <span className="stat-value">Kills: {killCount.opponent}</span>
+            </div>
           </div>
         </div>
         <button className="play-again-btn" onClick={onPlayAgain}>
@@ -41,4 +46,5 @@ const GameOver: React.FC<GameOverProps> = ({ isVictory, isTie, playerEnergy, opp
     </div>
   );
 };
+
 export default GameOver;

@@ -9,6 +9,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { io, Socket } from 'socket.io-client';
 import PlayerProfile from './assets/ui/Player_Profile.jpg';
 import OpponentProfile from './assets/ui/AIPlayer_Profile.jpg';
+import { useAuth } from './context/AuthContext';
 
 // Define the server URL for AWS deployment
 const SERVER_URL = process.env.REACT_APP_API_URL || 'http://34.209.16.106:3002'; // AWS EC2 instance URL
@@ -27,10 +28,37 @@ const socket: Socket = io(SERVER_URL, {
 const player1Info = { name: 'Player 1', avatar: PlayerProfile };
 const player2Info = { name: 'Player 2', avatar: OpponentProfile };
 
+// Login component
+const LoginScreen: React.FC = () => {
+  const { signInWithGoogle, isLoading, error } = useAuth();
+  
+  return (
+    <div className="login-container">
+      <div className="login-card">
+        <h1>Suimon Card Game</h1>
+        <p>Sign in to play and track your progress</p>
+        
+        <button 
+          onClick={signInWithGoogle} 
+          disabled={isLoading}
+          className="google-login-button"
+        >
+          {isLoading ? 'Loading...' : 'Connect with Google'}
+        </button>
+        
+        {error && <p className="error-message">{error}</p>}
+      </div>
+    </div>
+  );
+};
+
 function App() {
   console.log('App component is rendering');
   // Game constants
   const MAX_ENERGY = 700;
+
+  // Auth state
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
   // State variables
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -39,6 +67,10 @@ function App() {
   const [joinRoomInput, setJoinRoomInput] = useState('');
   const [dialogMessage, setDialogMessage] = useState<string | null>(null);
 
+  // Determine player info based on role
+  const currentPlayerInfo = playerRole === 'player2' ? player2Info : player1Info;
+  const currentOpponentInfo = playerRole === 'player2' ? player1Info : player2Info;
+  
   // Memoized function to add combat log entries
   const addCombatLogEntry = useCallback((message: string, type: string = 'info') => {
     setGameState((prev) => {
@@ -72,99 +104,102 @@ function App() {
 
   // Handle Socket.IO events
   useEffect(() => {
-    // Initialize socket connection
-    initializeSocket();
-    socket.on('connect', () => {
-      console.log('Connected to server at', SERVER_URL);
-    });
+    // Only initialize socket if user is authenticated
+    if (isAuthenticated) {
+      // Initialize socket connection
+      initializeSocket();
+      socket.on('connect', () => {
+        console.log('Connected to server at', SERVER_URL);
+      });
 
-    socket.on('roomCreated', (id: string) => {
-      console.log('Room created event received:', id);
-      setDialogMessage('Room created successfully. Waiting for opponent...');
-      setRoomId(id);
-      setPlayerRole('player1');
-    });
+      socket.on('roomCreated', (id: string) => {
+        console.log('Room created event received:', id);
+        setDialogMessage('Room created successfully. Waiting for opponent...');
+        setRoomId(id);
+        setPlayerRole('player1');
+      });
 
-    socket.on('joinSuccess', (id: string) => {
-      console.log('Join success event received:', id);
-      setDialogMessage('Successfully joined the room. Game will start soon...');
-    });
+      socket.on('joinSuccess', (id: string) => {
+        console.log('Join success event received:', id);
+        setDialogMessage('Successfully joined the room. Game will start soon...');
+      });
 
-    socket.on('startGame', (id: string) => {
-      console.log('Start game event received:', id);
-      setDialogMessage('Game starting...');
-      setRoomId(id);
-      if (!playerRole) {
-        console.log('Setting player role to player2');
-        setPlayerRole('player2');
-      }
-      const initialState: GameState = {
-        players: {
-          player: { id: 'player1', energy: MAX_ENERGY, deck: [], hand: getInitialHand() },
-          opponent: { id: 'player2', energy: MAX_ENERGY, deck: [], hand: getInitialHand() },
-        },
-        battlefield: { player: [], opponent: [] },
-        currentTurn: 'player',
-        gameStatus: 'waiting',
-        playerMaxHealth: MAX_ENERGY,
-        opponentMaxHealth: MAX_ENERGY,
-        combatLog: [],
-        killCount: { player: 0, opponent: 0 },
-      };
-      console.log('Setting initial game state:', initialState);
-      setGameState(initialState);
-      if (playerRole === 'player1') {
-        console.log('Player1 emitting initial game state');
-        socket.emit('updateGameState', id, initialState);
-      }
-    });
+      socket.on('startGame', (id: string) => {
+        console.log('Start game event received:', id);
+        setDialogMessage('Game starting...');
+        setRoomId(id);
+        if (!playerRole) {
+          console.log('Setting player role to player2');
+          setPlayerRole('player2');
+        }
+        const initialState: GameState = {
+          players: {
+            player: { id: 'player1', energy: MAX_ENERGY, deck: [], hand: getInitialHand() },
+            opponent: { id: 'player2', energy: MAX_ENERGY, deck: [], hand: getInitialHand() },
+          },
+          battlefield: { player: [], opponent: [] },
+          currentTurn: 'player',
+          gameStatus: 'waiting',
+          playerMaxHealth: MAX_ENERGY,
+          opponentMaxHealth: MAX_ENERGY,
+          combatLog: [],
+          killCount: { player: 0, opponent: 0 },
+        };
+        console.log('Setting initial game state:', initialState);
+        setGameState(initialState);
+        if (playerRole === 'player1') {
+          console.log('Player1 emitting initial game state');
+          socket.emit('updateGameState', id, initialState);
+        }
+      });
 
-    socket.on('gameStateUpdate', (newState: GameState) => {
-      console.log('Game state update received:', newState);
-      setGameState(newState);
-      setDialogMessage(null);
-    });
+      socket.on('gameStateUpdate', (newState: GameState) => {
+        console.log('Game state update received:', newState);
+        setGameState(newState);
+        setDialogMessage(null);
+      });
 
-    socket.on('error', (msg: string) => {
-      console.log('Error received:', msg);
-      setDialogMessage(`Failed to connect: ${msg}. Please try again.`);
-      if (msg.includes('Room does not exist') || msg.includes('Room is full')) {
+      socket.on('error', (msg: string) => {
+        console.log('Error received:', msg);
+        setDialogMessage(`Failed to connect: ${msg}. Please try again.`);
+        if (msg.includes('Room does not exist') || msg.includes('Room is full')) {
+          setRoomId(null);
+          setPlayerRole(null);
+          setGameState(null);
+        }
+      });
+
+      socket.on('playerDisconnected', () => {
+        console.log('Player disconnected');
+        setDialogMessage('Opponent disconnected. Game ended.');
         setRoomId(null);
         setPlayerRole(null);
         setGameState(null);
-      }
-    });
+      });
 
-    socket.on('playerDisconnected', () => {
-      console.log('Player disconnected');
-      setDialogMessage('Opponent disconnected. Game ended.');
-      setRoomId(null);
-      setPlayerRole(null);
-      setGameState(null);
-    });
+      socket.on('connect_error', (error) => {
+        console.log('Connection error:', error.message);
+        setDialogMessage(`Connection failed: ${error.message}. Please try again or check network.`);
+        socket.disconnect();
+        setRoomId(null);
+        setPlayerRole(null);
+        setGameState(null);
+      });
 
-    socket.on('connect_error', (error) => {
-      console.log('Connection error:', error.message);
-      setDialogMessage(`Connection failed: ${error.message}. Please try again or check network.`);
-      socket.disconnect();
-      setRoomId(null);
-      setPlayerRole(null);
-      setGameState(null);
-    });
-
-    // Cleanup listeners on unmount
-    return () => {
-      socket.off('connect');
-      socket.off('roomCreated');
-      socket.off('joinSuccess');
-      socket.off('startGame');
-      socket.off('gameStateUpdate');
-      socket.off('error');
-      socket.off('playerDisconnected');
-      socket.off('connect_error');
-      socket.offAny();
-    };
-  }, [playerRole, initializeSocket]);
+      // Cleanup listeners on unmount or when auth state changes
+      return () => {
+        socket.off('connect');
+        socket.off('roomCreated');
+        socket.off('joinSuccess');
+        socket.off('startGame');
+        socket.off('gameStateUpdate');
+        socket.off('error');
+        socket.off('playerDisconnected');
+        socket.off('connect_error');
+        socket.offAny();
+      };
+    }
+  }, [playerRole, initializeSocket, isAuthenticated]);
 
   // Handle player card play
   const handleCardPlay = (card: CardType) => {
@@ -200,210 +235,116 @@ function App() {
     socket.emit('updateGameState', roomId, newState);
   };
 
-  // Handle card defeat logic
-  const handleCardDefeated = (defeatedPlayerKey: 'player' | 'opponent') => {
-    if (!gameState || !roomId) return;
-
-    setGameState(prev => {
-      if (!prev) return prev;
+  // Handle card defeated event
+  const handleCardDefeated = useCallback((defeatedPlayerKey: 'player' | 'opponent') => {
+    console.log(`Card defeated for ${defeatedPlayerKey}`);
+    setGameState((prevState) => {
+      if (!prevState) return prevState;
+      const newKillCount = { ...prevState.killCount };
+      const killerKey = defeatedPlayerKey === 'player' ? 'opponent' : 'player';
+      newKillCount[killerKey] += 1;
       return {
-        ...prev,
-        killCount: {
-          ...prev.killCount,
-          [defeatedPlayerKey]: prev.killCount[defeatedPlayerKey] + 1
-        },
-        players: {
-          ...prev.players,
-          [defeatedPlayerKey]: {
-            ...prev.players[defeatedPlayerKey],
-            energy: prev.players[defeatedPlayerKey].energy - 50
-          }
-        }
+        ...prevState,
+        killCount: newKillCount
       };
     });
+  }, []);
+
+  // Render login screen if not authenticated
+  if (!isAuthenticated && !authLoading) {
+    return <LoginScreen />;
+  }
+
+  // Create a new game room
+  const createRoom = () => {
+    if (!isAuthenticated) return;
+    socket.emit('createRoom');
   };
 
-  // Calculate victory condition based on player role
-  const opponentEnergy = gameState?.players?.opponent?.energy;
-  const playerEnergy = gameState?.players?.player?.energy;
-  const isVictory =
-    opponentEnergy !== undefined && playerEnergy !== undefined
-      ? (playerRole === 'player1' && opponentEnergy <= 0 && playerEnergy > 0) ||
-        (playerRole === 'player2' && playerEnergy <= 0 && opponentEnergy > 0)
-      : false;
+  // Join an existing game room
+  const joinRoom = () => {
+    if (!isAuthenticated || !joinRoomInput) return;
+    socket.emit('joinRoom', joinRoomInput);
+  };
 
-  // Dialog component for feedback
-  const Dialog = ({ message }: { message: string }) => (
-    <div style={{ 
-      position: 'fixed', 
-      top: '10%', 
-      left: '50%', 
-      transform: 'translateX(-50%)', 
-      background: '#333',
-      color: '#fff', 
-      padding: '20px', 
-      border: '2px solid #666',
-      borderRadius: '8px', 
-      boxShadow: '0 4px 8px rgba(0,0,0,0.3)', 
-      zIndex: 1000,
-      minWidth: '300px',
-      textAlign: 'center'
-    }}>
-      <p style={{ fontSize: '16px', margin: '0 0 15px 0' }}>{message || 'Loading...'}</p>
-      <button 
-        onClick={() => setDialogMessage(null)}
-        style={{
-          background: '#4CAF50',
-          color: 'white',
-          border: 'none',
-          padding: '8px 16px',
-          borderRadius: '4px',
-          cursor: 'pointer'
+  // If auth is still loading, show a loading indicator
+  if (authLoading) {
+    return <div className="loading">Loading...</div>;
+  }
+
+  // If user is not authenticated, show login screen
+  if (!isAuthenticated) {
+    return <LoginScreen />;
+  }
+
+  // If game is over, show game over screen
+  if (gameState && gameState.gameStatus === 'finished') {
+    const winner = gameState.players.player.energy <= 0 ? 'opponent' : 'player';
+    return (
+      <GameOver
+        winner={winner}
+        playerInfo={currentPlayerInfo}
+        opponentInfo={currentOpponentInfo}
+        killCount={gameState.killCount}
+        onPlayAgain={() => {
+          setGameState(null);
+          setRoomId(null);
+          setPlayerRole(null);
         }}
-      >
-        Close
-      </button>
-    </div>
-  );
+      />
+    );
+  }
 
-  const handleJoinGame = () => {
-    console.log('Join Game button clicked');
-    console.log('Socket connected:', socket.connected);
-
-    if (!joinRoomInput.trim()) {
-      setDialogMessage('Please enter a valid Room ID');
-      return;
-    }
-
-    if (!socket.connected) {
-      console.log('Attempting to reconnect...');
-      socket.connect();
-      setDialogMessage('Attempting to connect to server...');
-      return;
-    }
-
-    setDialogMessage('Joining game room...');
-    socket.emit('joinRoom', joinRoomInput.trim());
-    console.log('Emitted joinRoom event with ID:', joinRoomInput.trim());
-
-    const joinTimeout = setTimeout(() => {
-      setDialogMessage('Room join request timed out. Please try again or check network.');
-      socket.disconnect();
-    }, 15000);
-
-    const handleJoinSuccess = () => {
-      clearTimeout(joinTimeout);
-      setDialogMessage('Successfully joined the room. Game will start soon...');
-    };
-
-    const handleError = (msg: string) => {
-      clearTimeout(joinTimeout);
-      setDialogMessage(`Failed to connect: ${msg}. Please try again or check network.`);
-      socket.disconnect();
-    };
-
-    socket.once('joinSuccess', handleJoinSuccess);
-    socket.once('error', handleError);
-
-    return () => {
-      socket.off('joinSuccess', handleJoinSuccess);
-      socket.off('error', handleError);
-      clearTimeout(joinTimeout);
-    };
-  };
-
-  // Room creation/joining UI
-  if (!roomId) {
+  // If game is in progress, show game board
+  if (gameState && roomId) {
     return (
       <DndProvider backend={HTML5Backend}>
-        <div className="app">
-          <div className="background-rectangle" />
-          <div className="game-container">
-            <h2>Suimon Card Battle</h2>
-            <button
-              onClick={() => {
-                console.log('Create Game button clicked');
-                console.log('Socket connected:', socket.connected);
-                if (!socket.connected) {
-                  console.log('Attempting to reconnect...');
-                  socket.connect();
-                }
-                setDialogMessage('Creating game room... Socket status: ' + (socket.connected ? 'Connected' : 'Disconnected'));
-                socket.emit('createRoom');
-                console.log('Emitted createRoom event');
-              }}
-            >
-              Create Game
-            </button>
-            <input
-              type="text"
-              value={joinRoomInput}
-              onChange={(e) => setJoinRoomInput(e.target.value)}
-              placeholder="Enter Room ID"
-            />
-            <button
-              onClick={handleJoinGame}
-              className="join-game-button"
-            >
-              Join Game
-            </button>
-            {dialogMessage && <Dialog message={dialogMessage} />}
-          </div>
-        </div>
+        <GameBoard
+          gameState={gameState}
+          onCardPlay={handleCardPlay}
+          setGameState={setGameState}
+          playerInfo={currentPlayerInfo}
+          opponentInfo={currentOpponentInfo}
+          combatLog={gameState.combatLog}
+          addCombatLogEntry={addCombatLogEntry}
+          killCount={gameState.killCount}
+          playerRole={playerRole || 'player1'}
+          roomId={roomId}
+          socket={socket}
+          onCardDefeated={(defeatedPlayerKey) => handleCardDefeated(defeatedPlayerKey)}
+        />
       </DndProvider>
     );
   }
 
-  // Main game UI with game state and player info
+  // If no game is in progress, show lobby
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="app">
-        <div className="background-rectangle" />
-        <div className="game-container">
-          {gameState?.gameStatus === 'finished' ? (
-            <GameOver
-              isVictory={isVictory}
-              isTie={false}
-              playerEnergy={playerEnergy ?? 0}
-              opponentEnergy={opponentEnergy ?? 0}
-              onPlayAgain={() => {
-                setRoomId(null);
-                setPlayerRole(null);
-                setGameState(null);
-              }}
-            />
-          ) : (
-            <>
-              <div className="game-info-panel">
-                <p><strong>Room ID:</strong> {roomId} <button onClick={() => navigator.clipboard.writeText(roomId || '')}>Copy</button></p>
-                <p><strong>Your Role:</strong> {playerRole}</p>
-                <p><strong>Player 1 Joined:</strong> {(playerRole === 'player1' && roomId) || (gameState?.players.player) ? 'Yes' : 'No'}</p>
-                <p><strong>Player 2 Joined:</strong> {gameState?.players.opponent ? 'Yes' : 'No'}</p>
-                <p><strong>Current Game State:</strong> {gameState?.gameStatus || 'Not started'}</p>
-              </div>
-
-              {gameState && playerRole && (
-                <GameBoard
-                  gameState={gameState}
-                  onCardPlay={handleCardPlay}
-                  setGameState={setGameState}
-                  playerInfo={playerRole === 'player1' ? player1Info : player2Info}
-                  opponentInfo={playerRole === 'player1' ? player2Info : player1Info}
-                  combatLog={gameState.combatLog}
-                  addCombatLogEntry={addCombatLogEntry}
-                  killCount={gameState.killCount}
-                  playerRole={playerRole}
-                  roomId={roomId}
-                  socket={socket}
-                  onCardDefeated={handleCardDefeated}
-                />
-              )}
-            </>
-          )}
-          {dialogMessage && <Dialog message={dialogMessage} />}
+    <div className="lobby">
+      <div className="user-profile">
+        <img src={user?.picture || PlayerProfile} alt="Profile" className="profile-image" />
+        <h2>Welcome, {user?.name || 'Player'}!</h2>
+      </div>
+      
+      <h1>Suimon Card Game</h1>
+      <div className="room-controls">
+        <button onClick={createRoom} className="create-room-btn">
+          Create New Game
+        </button>
+        <div className="join-room-container">
+          <input
+            type="text"
+            value={joinRoomInput}
+            onChange={(e) => setJoinRoomInput(e.target.value)}
+            placeholder="Enter Room ID"
+            className="room-input"
+          />
+          <button onClick={joinRoom} disabled={!joinRoomInput} className="join-room-btn">
+            Join Game
+          </button>
         </div>
       </div>
-    </DndProvider>
+      {dialogMessage && <div className="dialog-message">{dialogMessage}</div>}
+    </div>
   );
 }
 

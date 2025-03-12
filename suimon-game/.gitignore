@@ -40,6 +40,28 @@ Thumbs.db
 .aws-sam/
 .serverless/
 
+# SSH Keys and Credentials
+*.pem
+*_rsa
+*_dsa
+*.key
+*.pub
+suimon-backend-key*
+
+# AWS Cognito and Authentication
+aws-exports.js
+amplify/
+.amplify/
+**/aws-exports.js
+**/amplify/
+**/aws-config.js
+**/cognito-config.js
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+
 # Ignore Terraform provider binaries
 .terraform/
 .terraform/**/*
