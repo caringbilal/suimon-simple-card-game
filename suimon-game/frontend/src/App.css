@@ -14,6 +14,81 @@
   --background-darker: rgba(0, 0, 0, 0.5);
 }
 
+/* Login styles */
+.login-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  z-index: 1000;
+}
+
+.login-card {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-radius: 15px;
+  padding: 40px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  max-width: 400px;
+  width: 90%;
+}
+
+.login-card h1 {
+  color: #0f3460;
+  margin-bottom: 20px;
+  font-size: 2.5rem;
+}
+
+.login-card p {
+  color: #555;
+  margin-bottom: 30px;
+  font-size: 1.1rem;
+}
+
+.google-login-button {
+  background-color: #4285f4;
+  color: white;
+  border: none;
+  padding: 15px 30px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.google-login-button:hover {
+  background-color: #357ae8;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+.google-login-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.error-message {
+  color: #e63946;
+  margin-top: 20px;
+  font-size: 0.9rem;
+  padding: 10px;
+  background-color: rgba(230, 57, 70, 0.1);
+  border-radius: 4px;
+}
+
 .app {
   min-height: 100vh;
   width: 100%;
