@@ -106,8 +106,13 @@ io.on('connection', (socket) => {
       room.player2 = socket.id;
       console.log(`Player 2 (${socket.id}) successfully joined room ${roomId}`);
 
-      // Notify the joining player of success
-      socket.emit('joinSuccess', roomId);
+      // Notify both players about the successful join
+      io.to(roomId).emit('joinSuccess', roomId);
+      
+      // Ensure both players have the latest game state
+      if (room.gameState) {
+        io.to(roomId).emit('gameStateUpdate', room.gameState);
+      }
 
       // Wait briefly to ensure both clients are ready, then start the game
       setTimeout(() => {
