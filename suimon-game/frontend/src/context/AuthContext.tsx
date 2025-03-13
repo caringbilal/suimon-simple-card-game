@@ -45,18 +45,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Configure Amplify when the component mounts
   useEffect(() => {
+    // Trying to print below environment variables
+    console.log('User Pool ID:', process.env.REACT_APP_USER_POOL_ID);
+    console.log('User Pool Client ID:', process.env.REACT_APP_USER_POOL_CLIENT_ID);
+    console.log('Cognito Domain:', process.env.REACT_APP_COGNITO_DOMAIN);
+    console.log('Redirect Sign In:', process.env.REACT_APP_REDIRECT_SIGN_IN);
+    console.log('Redirect Sign Out:', process.env.REACT_APP_REDIRECT_SIGN_OUT);
+
     Amplify.configure({
       Auth: {
         Cognito: {
           userPoolId: process.env.REACT_APP_USER_POOL_ID || '',
           userPoolClientId: process.env.REACT_APP_USER_POOL_CLIENT_ID || '',
-          signUpVerificationMethod: 'code',
           loginWith: {
             oauth: {
               domain: process.env.REACT_APP_COGNITO_DOMAIN || '',
               scopes: ['email', 'profile', 'openid'],
-              redirectSignIn: [process.env.REACT_APP_REDIRECT_SIGN_IN || ''],
-              redirectSignOut: [process.env.REACT_APP_REDIRECT_SIGN_OUT || ''],
+              redirectSignIn: [process.env.REACT_APP_REDIRECT_SIGN_IN || 'http://localhost:3005'],
+              redirectSignOut: [process.env.REACT_APP_REDIRECT_SIGN_OUT || 'http://localhost:3005'],
               responseType: 'code'
             }
           }
