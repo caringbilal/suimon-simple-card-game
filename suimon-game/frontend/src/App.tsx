@@ -17,12 +17,12 @@ import LogoutButton from './components/LogoutButton';
 // Define the server URL for AWS deployment
 const SERVER_URL = process.env.REACT_APP_API_URL || 'http://34.209.16.106:3002'; // AWS EC2 instance URL
 const socket: Socket = io(SERVER_URL, {
-  transports: ['websocket', 'polling'],
+  transports: ['websocket'],
   reconnection: true,
-  reconnectionAttempts: 10,
+  reconnectionAttempts: Infinity,
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
-  timeout: 60000,
+  timeout: 20000,
   autoConnect: false,
   forceNew: true
 });
@@ -145,6 +145,11 @@ function App() {
       socket.on('joinSuccess', (id: string) => {
         console.log('Join success event received:', id);
         setDialogMessage('Successfully joined the room. Game will start soon...');
+        setRoomId(id);
+        // Ensure Player 1 knows a player has joined
+        if (playerRole === 'player1') {
+          setDialogMessage('Player 2 has joined! Game starting...');
+        }
       });
 
       socket.on('startGame', (id: string) => {
@@ -162,7 +167,7 @@ function App() {
           },
           battlefield: { player: [], opponent: [] },
           currentTurn: 'player',
-          gameStatus: 'waiting',
+          gameStatus: 'playing',
           playerMaxHealth: MAX_ENERGY,
           opponentMaxHealth: MAX_ENERGY,
           combatLog: [],
@@ -370,6 +375,28 @@ function App() {
           </button>
         </div>
       </div>
+      {roomId && (
+        <div className="room-info">
+          <p>Room ID: <span className="room-id">{roomId}</span></p>
+          <div className="room-details">
+            <p>Your Role: <span className="role">{playerRole === 'player1' ? 'Host (Player 1)' : playerRole === 'player2' ? 'Guest (Player 2)' : 'Not assigned yet'}</span></p>
+            <p>Game Status: <span className="status">{gameState ? gameState.gameStatus : 'Waiting for players'}</span></p>
+            <p>Current Turn: <span className="turn">{gameState ? (gameState.currentTurn === 'player' ? 'Player 1' : 'Player 2') : 'Game not started'}</span></p>
+            {playerRole === 'player1' && <p className="waiting-message">Waiting for Player 2 to join...</p>}
+            {playerRole === 'player2' && <p className="waiting-message">Connected as Player 2</p>}
+          </div>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(roomId);
+              setDialogMessage('Room ID copied to clipboard!');
+              setTimeout(() => setDialogMessage(null), 2000);
+            }}
+            className="copy-room-btn"
+          >
+            Copy Room ID
+          </button>
+        </div>
+      )}
       {dialogMessage && <div className="dialog-message">{dialogMessage}</div>}
     </div>
   );

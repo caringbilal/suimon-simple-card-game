@@ -688,3 +688,66 @@ button[onClick*="Copy"]:hover {
 .player-profile .profile-picture {
   border-color: rgba(46, 204, 113, 0.4);
 }
+
+.room-info {
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px auto;
+  max-width: 400px;
+  color: white;
+  text-align: center;
+}
+
+.room-info .room-id {
+  color: #4CAF50;
+  font-weight: bold;
+  font-size: 1.2em;
+}
+
+.room-details {
+  margin: 15px 0;
+  text-align: left;
+}
+
+.room-details p {
+  margin: 8px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.room-details .role {
+  color: #2196F3;
+  font-weight: bold;
+}
+
+.room-details .status {
+  color: #FFC107;
+  font-weight: bold;
+}
+
+.room-details .turn {
+  color: #E91E63;
+  font-weight: bold;
+}
+
+.waiting-message {
+  color: #4CAF50;
+  font-style: italic;
+  margin-top: 10px;
+}
+
+.copy-room-btn {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.copy-room-btn:hover {
+  background: #45a049;
+}
