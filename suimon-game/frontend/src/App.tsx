@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { GoogleLogin } from '@react-oauth/google';
+import { jwtDecode } from 'jwt-decode';
 import './App.css';
 import GameBoard from '@components/GameBoard';
 import GameOver from '@components/GameOver';
@@ -31,21 +33,41 @@ const player2Info = { name: 'Player 2', avatar: OpponentProfile };
 
 // Login component
 const LoginScreen: React.FC = () => {
-  const { signInWithGoogle, isLoading, error } = useAuth();
+  const { isLoading, error } = useAuth();
   
+  const handleGoogleSuccess = (credentialResponse: any) => {
+    try {
+      const decoded: any = jwtDecode(credentialResponse.credential);
+      const userData = {
+        email: decoded.email,
+        name: decoded.name,
+        picture: decoded.picture,
+        sub: decoded.sub,
+      };
+      localStorage.setItem('google_credential', credentialResponse.credential);
+      window.location.reload();
+    } catch (error) {
+      console.error('Error processing Google sign-in:', error);
+    }
+  };
+
   return (
     <div className="login-container">
       <div className="login-card">
         <h1>Suimon Card Game</h1>
         <p>Sign in to play and track your progress</p>
         
-        <button 
-          onClick={signInWithGoogle} 
-          disabled={isLoading}
-          className="google-login-button"
-        >
-          {isLoading ? 'Loading...' : 'Connect with Google'}
-        </button>
+        <div className="google-login-wrapper">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => console.error('Login Failed')}
+            theme="filled_blue"
+            size="large"
+            shape="pill"
+            text="continue_with"
+            useOneTap
+          />
+        </div>
         
         {error && <p className="error-message">{error}</p>}
       </div>
