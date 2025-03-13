@@ -1,6 +1,7 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
+const { playerOperations, gameOperations } = require('./database/dynamodb');
 
 const app = express();
 const server = http.createServer(app);
@@ -45,27 +46,27 @@ io.on('connection', (socket) => {
   socket.emit('connected', { id: socket.id });
 
   // Handle player disconnection
-  socket.on('disconnect', (reason) => {
+  socket.on('disconnect', async (reason) => {
     console.log(`Player ${socket.id} disconnected. Reason: ${reason}`);
     for (const roomId in gameStates) {
       const room = gameStates[roomId];
       if (room.player1 === socket.id || room.player2 === socket.id) {
         console.log(`Cleaning up room ${roomId} due to player ${socket.id} disconnection`);
         io.to(roomId).emit('playerDisconnected', { reason });
+        // Update game state in DynamoDB
+        try {
+          await gameOperations.endGame(roomId, null);
+        } catch (error) {
+          console.error('Error updating game state on disconnect:', error);
+        }
         delete gameStates[roomId];
         break;
       }
     }
   });
 
-  // Handle socket errors
-  socket.on('error', (error) => {
-    console.error(`Socket ${socket.id} error:`, error);
-    socket.emit('error', 'An unexpected error occurred. Please try again.');
-  });
-
   // Create a new game room
-  socket.on('createRoom', () => {
+  socket.on('createRoom', async () => {
     try {
       const roomId = generateUniqueRoomId();
       socket.join(roomId);
@@ -106,6 +107,18 @@ io.on('connection', (socket) => {
       room.player2 = socket.id;
       console.log(`Player 2 (${socket.id}) successfully joined room ${roomId}`);
 
+      // Create game record in DynamoDB
+      try {
+        await gameOperations.createGame({
+          roomId,
+          player1Id: room.player1,
+          player2Id: room.player2,
+          gameState: room.gameState
+        });
+      } catch (error) {
+        console.error('Error creating game record:', error);
+      }
+
       // Notify both players about the successful join
       io.to(roomId).emit('joinSuccess', roomId);
       
@@ -127,21 +140,52 @@ io.on('connection', (socket) => {
   });
 
   // Handle game state updates from Player 1
-  socket.on('updateGameState', (roomId, newGameState) => {
+  socket.on('updateGameState', async (roomId, newGameState) => {
     try {
       if (!gameStates[roomId]) {
         throw new Error('Room not found');
       }
 
-      // Update the server-side game state and broadcast to all players in the room
+      // Update the server-side game state
       gameStates[roomId].gameState = newGameState;
+
+      // Update game state in DynamoDB
+      try {
+        await gameOperations.updateGame(roomId, newGameState);
+      } catch (error) {
+        console.error('Error updating game state in DynamoDB:', error);
+      }
+
+      // Broadcast to all players in the room
       io.to(roomId).emit('gameStateUpdate', newGameState);
       console.log(`Game state updated for room ${roomId}`);
+
+      // Check for game end condition
+      if (newGameState.gameStatus === 'finished') {
+        const winner = newGameState.players.player.energy <= 0 ? 'opponent' : 'player';
+        const winnerId = winner === 'player' ? gameStates[roomId].player1 : gameStates[roomId].player2;
+        
+        try {
+          await gameOperations.endGame(roomId, winnerId);
+          // Update player statistics
+          const loserId = winner === 'player' ? gameStates[roomId].player2 : gameStates[roomId].player1;
+          await playerOperations.updatePlayer(winnerId, { $inc: { wins: 1 } });
+          await playerOperations.updatePlayer(loserId, { $inc: { losses: 1 } });
+        } catch (error) {
+          console.error('Error updating game end state:', error);
+        }
+      }
 
     } catch (error) {
       console.error(`Error updating game state: ${error.message}`);
       socket.emit('error', 'Failed to update game state');
     }
+  });
+
+  // Handle socket errors
+  socket.on('error', (error) => {
+    console.error(`Socket ${socket.id} error:`, error);
+    socket.emit('error', 'An unexpected error occurred. Please try again.');
   });
 
   // Heartbeat mechanism to maintain connection health
