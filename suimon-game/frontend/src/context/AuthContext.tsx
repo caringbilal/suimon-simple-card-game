@@ -97,14 +97,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     >
       {children}
       {showGoogleLogin && !user && (
-        <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1000 }}>
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={() => {
-              setError('Login Failed');
-              setShowGoogleLogin(false);
-            }}
-          />
+        <div className="login-container">
+          <div className="login-card">
+            <h1>Welcome</h1>
+            <p>Please sign in with your Google account to continue</p>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => {
+                setError('Login Failed');
+                setShowGoogleLogin(false);
+              }}
+            />
+            {error && <p className="error-message">{error}</p>}
+          </div>
         </div>
       )}
     </AuthContext.Provider>

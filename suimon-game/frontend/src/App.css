@@ -160,6 +160,43 @@
   align-items: center;
 }
 
+.logout-button-game {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background-color: var(--danger-color);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+  z-index: 1000;
+}
+
+.logout-button-game:hover {
+  background-color: var(--danger-light);
+}
+
+.logout-button-lobby {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background-color: var(--danger-color);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+}
+
+.logout-button-lobby:hover {
+  background-color: var(--danger-light);
+}
+
 .game-info-panel {
   position: fixed;
   top: 50%;

@@ -10,6 +10,7 @@ import { io, Socket } from 'socket.io-client';
 import PlayerProfile from './assets/ui/Player_Profile.jpg';
 import OpponentProfile from './assets/ui/AIPlayer_Profile.jpg';
 import { useAuth } from './context/AuthContext';
+import LogoutButton from './components/LogoutButton';
 
 // Define the server URL for AWS deployment
 const SERVER_URL = process.env.REACT_APP_API_URL || 'http://34.209.16.106:3002'; // AWS EC2 instance URL
@@ -299,20 +300,23 @@ function App() {
   if (gameState && roomId) {
     return (
       <DndProvider backend={HTML5Backend}>
-        <GameBoard
-          gameState={gameState}
-          onCardPlay={handleCardPlay}
-          setGameState={setGameState}
-          playerInfo={currentPlayerInfo}
-          opponentInfo={currentOpponentInfo}
-          combatLog={gameState.combatLog}
-          addCombatLogEntry={addCombatLogEntry}
-          killCount={gameState.killCount}
-          playerRole={playerRole || 'player1'}
-          roomId={roomId}
-          socket={socket}
-          onCardDefeated={(defeatedPlayerKey) => handleCardDefeated(defeatedPlayerKey)}
-        />
+        <div className="game-container">
+          <LogoutButton className="logout-button-game" />
+          <GameBoard
+            gameState={gameState}
+            onCardPlay={handleCardPlay}
+            setGameState={setGameState}
+            playerInfo={currentPlayerInfo}
+            opponentInfo={currentOpponentInfo}
+            combatLog={gameState.combatLog}
+            addCombatLogEntry={addCombatLogEntry}
+            killCount={gameState.killCount}
+            playerRole={playerRole || 'player1'}
+            roomId={roomId}
+            socket={socket}
+            onCardDefeated={(defeatedPlayerKey) => handleCardDefeated(defeatedPlayerKey)}
+          />
+        </div>
       </DndProvider>
     );
   }
@@ -323,6 +327,7 @@ function App() {
       <div className="user-profile">
         <img src={user?.picture || PlayerProfile} alt="Profile" className="profile-image" />
         <h2>Welcome, {user?.name || 'Player'}!</h2>
+        <LogoutButton className="logout-button-lobby" />
       </div>
       
       <h1>Suimon Card Game</h1>
