@@ -1,11 +1,32 @@
 version: 0.2
+
 phases:
   install:
+    runtime-versions:
+      nodejs: 16
     commands:
       - npm install
+      - npm install -g pm2
+  pre_build:
+    commands:
+      - echo "Setting up environment variables"
+      - echo "AWS_REGION=$AWS_REGION" >> .env
+      - echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> .env
+      - echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> .env
+      - echo "DYNAMODB_PLAYERS_TABLE=SuimonPlayers" >> .env
+      - echo "DYNAMODB_GAMES_TABLE=SuimonGames" >> .env
+      - echo "PORT=3002" >> .env
   build:
     commands:
-      - echo "Build completed"
+      - echo "Starting the application with PM2"
+      - pm2 start server.js
+      - pm2 save
+  post_build:
+    commands:
+      - echo "Build completed successfully"
+
 artifacts:
   files:
     - '**/*'
+    - .env
+  discard-paths: no

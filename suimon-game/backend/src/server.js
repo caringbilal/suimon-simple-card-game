@@ -6,11 +6,19 @@ const { playerOperations, gameOperations } = require('./database/dynamodb');
 const app = express();
 const server = http.createServer(app);
 
-// Enable CORS for all routes
+// Enable CORS for all routes with specific configuration
+const corsOptions = {
+  origin: 'https://d2m7rldqkz1v8b.cloudfront.net',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
+  credentials: true
+};
+
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  res.header('Access-Control-Allow-Origin', corsOptions.origin);
+  res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
+  res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
+  res.header('Access-Control-Allow-Credentials', 'true');
   next();
 });
 

@@ -1,11 +1,23 @@
 version: 0.2
+
 phases:
   install:
+    runtime-versions:
+      nodejs: 16
     commands:
       - npm install
+  pre_build:
+    commands:
+      - echo "Setting up environment variables"
+      - echo "REACT_APP_BACKEND_URL=http://$BACKEND_URL:3002" >> .env
+      - echo "REACT_APP_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID" >> .env
+      - echo "REACT_APP_COGNITO_USER_POOL_ID=$COGNITO_USER_POOL_ID" >> .env
+      - echo "REACT_APP_COGNITO_CLIENT_ID=$COGNITO_CLIENT_ID" >> .env
   build:
     commands:
       - npm run build
+
 artifacts:
   files:
     - build/**/*
+  discard-paths: no
