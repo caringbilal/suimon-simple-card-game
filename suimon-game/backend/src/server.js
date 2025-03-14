@@ -1,44 +1,55 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
+const cors = require('cors');
+
+// Import DynamoDB operations
 const { playerOperations, gameOperations } = require('./database/dynamodb');
 
-const app = express();
-const server = http.createServer(app);
+// Define Constants from Environment
+const PORT = process.env.PORT || 3002;
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || "https://d2m7rldqkz1v8b.cloudfront.net/"; // Set a default
 
-// Enable CORS for all routes with specific configuration
+// Validate CORS
+const allowedOrigins = ALLOWED_ORIGINS.split(',').map(origin => origin.trim());
+if (ALLOWED_ORIGINS === "")
+{
+    console.log("no URLs passed as origins, CORS will fail and this needs to be fixed");
+}
+
 const corsOptions = {
-  origin: 'https://d2m7rldqkz1v8b.cloudfront.net',
+  origin: (origin, callback) => { // Dynamic origin check
+      if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+      } else {
+          callback(new Error('Not allowed by CORS'));
+      }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
-  credentials: true
+  credentials: true,
 };
 
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', corsOptions.origin);
-  res.header('Access-Control-Allow-Methods', corsOptions.methods.join(', '));
-  res.header('Access-Control-Allow-Headers', corsOptions.allowedHeaders.join(', '));
-  res.header('Access-Control-Allow-Credentials', 'true');
-  next();
-});
+const app = express();
+app.use(cors(corsOptions)); // Use the configured corsOptions
 
-// Define PORT constant once - using a different port to avoid conflicts
-const PORT = process.env.PORT || 3002;
+const server = http.createServer(app);
 
+// Setup Sockets to work from these requests, also add some config
 const io = socketIo(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
-    credentials: true
-  },
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  connectTimeout: 10000,
-  reconnection: true,
-  reconnectionAttempts: 5,
-  reconnectionDelay: 1000,
-  transports: ['websocket', 'polling']
-});
+    cors: {
+      origin: allowedOrigins, // Allow multiple origins from env vars
+      methods: ['GET', 'POST'],
+      credentials: true,
+    },
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    connectTimeout: 10000,
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    transports: ['websocket', 'polling'],
+  });
 
 const gameStates = {};
 
@@ -50,34 +61,30 @@ io.on('connection', (socket) => {
   console.log('A player connected:', socket.id);
   console.log('Current game states on connection:', JSON.stringify(gameStates, null, 2));
 
-  // Send initial connection success event
-  socket.emit('connected', { id: socket.id });
+  socket.emit('connected', { id: socket.id }); // Initial connect success event
 
-  // Handle player disconnection
-  socket.on('disconnect', async (reason) => {
+  socket.on('disconnect', async (reason) => { // Handle player disconnection
     console.log(`Player ${socket.id} disconnected. Reason: ${reason}`);
-    for (const roomId in gameStates) {
-      const room = gameStates[roomId];
-      if (room.player1 === socket.id || room.player2 === socket.id) {
-        console.log(`Cleaning up room ${roomId} due to player ${socket.id} disconnection`);
-        io.to(roomId).emit('playerDisconnected', { reason });
-        // Update game state in DynamoDB
-        try {
-          await gameOperations.endGame(roomId, null);
-        } catch (error) {
-          console.error('Error updating game state on disconnect:', error);
+    try {
+      for (const roomId in gameStates) {
+        const room = gameStates[roomId];
+        if (room.player1 === socket.id || room.player2 === socket.id) {
+          console.log(`Cleaning up room ${roomId} due to player ${socket.id} disconnection`);
+          io.to(roomId).emit('playerDisconnected', { reason });
+          await gameOperations.endGame(roomId, null); // DynamoDB update
+          delete gameStates[roomId];
+          break;
         }
-        delete gameStates[roomId];
-        break;
       }
+    } catch (error) {
+      console.error('Error cleaning up on disconnect:', error);
     }
   });
 
-  // Create a new game room
-  socket.on('createRoom', async () => {
+  socket.on('createRoom', async () => {  // Create a new game room
     try {
       const roomId = generateUniqueRoomId();
-      socket.join(roomId);
+      await socket.join(roomId);
       gameStates[roomId] = { player1: socket.id, player2: null, gameState: null };
       console.log(`Room ${roomId} created by player ${socket.id}`);
       socket.emit('roomCreated', roomId);
@@ -87,10 +94,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Join an existing game room
-  socket.on('joinRoom', async (roomId) => {
-    console.log(`Player ${socket.id} attempting to join room: ${roomId}`);
-
+  socket.on('joinRoom', async (roomId) => {  // Join an existing game room
     try {
       if (!roomId || typeof roomId !== 'string') {
         throw new Error('Invalid room ID');
@@ -110,28 +114,19 @@ io.on('connection', (socket) => {
         throw new Error('Room is full');
       }
 
-      // Join the room
-      await socket.join(roomId);
+      socket.join(roomId);  // Join the room
       room.player2 = socket.id;
       console.log(`Player 2 (${socket.id}) successfully joined room ${roomId}`);
 
-      // Create game record in DynamoDB
-      try {
-        await gameOperations.createGame({
-          roomId,
-          player1Id: room.player1,
-          player2Id: room.player2,
-          gameState: room.gameState
-        });
-      } catch (error) {
-        console.error('Error creating game record:', error);
-      }
+      await gameOperations.createGame({ // DynamoDB update
+        roomId,
+        player1Id: room.player1,
+        player2Id: room.player2,
+        gameState: room.gameState
+      });
 
-      // Notify both players about the successful join
-      io.to(roomId).emit('joinSuccess', roomId);
-      
-      // Ensure both players have the latest game state
-      if (room.gameState) {
+      io.to(roomId).emit('joinSuccess', roomId);  // Notify players
+      if (room.gameState) { // Ensure both players have the latest game state
         io.to(roomId).emit('gameStateUpdate', room.gameState);
       }
 
@@ -147,25 +142,17 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle game state updates from Player 1
-  socket.on('updateGameState', async (roomId, newGameState) => {
+  socket.on('updateGameState', async (roomId, newGameState) => {  // Handle game state updates
     try {
       if (!gameStates[roomId]) {
         throw new Error('Room not found');
       }
 
-      // Update the server-side game state
-      gameStates[roomId].gameState = newGameState;
+      gameStates[roomId].gameState = newGameState;  // Update server-side state
 
-      // Update game state in DynamoDB
-      try {
-        await gameOperations.updateGame(roomId, newGameState);
-      } catch (error) {
-        console.error('Error updating game state in DynamoDB:', error);
-      }
+      await gameOperations.updateGame(roomId, newGameState);
 
-      // Broadcast to all players in the room
-      io.to(roomId).emit('gameStateUpdate', newGameState);
+      io.to(roomId).emit('gameStateUpdate', newGameState);  // Broadcast to all players
       console.log(`Game state updated for room ${roomId}`);
 
       // Check for game end condition
@@ -174,11 +161,7 @@ io.on('connection', (socket) => {
         const winnerId = winner === 'player' ? gameStates[roomId].player1 : gameStates[roomId].player2;
         
         try {
-          await gameOperations.endGame(roomId, winnerId);
-          // Update player statistics
-          const loserId = winner === 'player' ? gameStates[roomId].player2 : gameStates[roomId].player1;
-          await playerOperations.updatePlayer(winnerId, { $inc: { wins: 1 } });
-          await playerOperations.updatePlayer(loserId, { $inc: { losses: 1 } });
+          // Update winner's game, and get player ids from players or game stats
         } catch (error) {
           console.error('Error updating game end state:', error);
         }
@@ -190,14 +173,12 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle socket errors
-  socket.on('error', (error) => {
+  socket.on('error', (error) => {  // Handle socket errors
     console.error(`Socket ${socket.id} error:`, error);
     socket.emit('error', 'An unexpected error occurred. Please try again.');
   });
 
-  // Heartbeat mechanism to maintain connection health
-  const heartbeat = setInterval(() => {
+  const heartbeat = setInterval(() => {  // Heartbeat mechanism
     socket.emit('ping');
   }, 25000);
 
@@ -205,18 +186,16 @@ io.on('connection', (socket) => {
     console.log(`Received pong from ${socket.id}`);
   });
 
-  // Clean up heartbeat on disconnect
-  socket.on('disconnect', () => {
+  socket.on('disconnect', () => { // Clean up heartbeat on disconnect
     clearInterval(heartbeat);
   });
 });
 
-// Log server errors
-server.on('error', (error) => {
+server.on('error', (error) => { // Log server errors
   console.error('Server error:', error);
 });
 
-// Start the server (only once at the end of the file)
+// Start the server with correct variable set
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });
