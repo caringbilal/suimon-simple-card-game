@@ -69,7 +69,7 @@ resource "aws_instance" "backend" {
   key_name      = aws_key_pair.backend_key.key_name
 
   tags = {
-    Name = "suimon-game-backend"
+    Name = "suimon-backend-server"
   }
 
   user_data = <<-EOF
@@ -84,15 +84,18 @@ resource "aws_instance" "backend" {
               AWS_REGION=us-west-2
               DYNAMODB_PLAYERS_TABLE=SuimonPlayers
               DYNAMODB_GAMES_TABLE=SuimonGames
-              ALLOWED_ORIGINS=http://localhost:3005,https://d1234abcd.cloudfront.net
+              ALLOWED_ORIGINS=*
               NODE_ENV=production
               EOL
               chown -R ec2-user:ec2-user /home/ec2-user/suimon-game
-              sudo -u ec2-user bash -c 'cd /home/ec2-user/suimon-game && git clone https://github.com/yourusername/suimon-game.git .'
-              sudo -u ec2-user bash -c 'cd /home/ec2-user/suimon-game/backend && npm install'
-              sudo -u ec2-user bash -c 'cd /home/ec2-user/suimon-game/backend && pm2 start server.js'
-              sudo -u ec2-user bash -c 'pm2 startup'
-              sudo -u ec2-user bash -c 'pm2 save'
+              git clone https://github.com/bilal/suimon-simple-card-game.git .
+              cd backend
+              npm install
+              pm2 delete suimon-backend || true
+              pm2 start server.js --name "suimon-backend" --time
+              pm2 startup
+              pm2 save
+              pm2 startup | grep -v PM2 | bash
               EOF
 
   vpc_security_group_ids = [aws_security_group.backend_sg.id]
@@ -161,6 +164,7 @@ resource "aws_security_group" "backend_sg" {
     to_port     = 3002
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow WebSocket and HTTP connections"
   }
 
   ingress {
@@ -168,6 +172,7 @@ resource "aws_security_group" "backend_sg" {
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow SSH access"
   }
 
   egress {
@@ -175,6 +180,12 @@ resource "aws_security_group" "backend_sg" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
+  }
+
+  tags = {
+    Name = "suimon-backend-sg"
+    Environment = "production"
   }
 }
 

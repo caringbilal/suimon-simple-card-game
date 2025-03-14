@@ -70,3 +70,6 @@ amplify/
 # Ignore AWS CLI package
 AWSCLIV2.pkg
 
+# Deployment backup
+deployment-backup/
+

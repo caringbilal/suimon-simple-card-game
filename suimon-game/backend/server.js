@@ -1,14 +1,28 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
+const AWS = require('aws-sdk');
 const { playerOperations, gameOperations } = require('./database/dynamodb');
+
+// Configure AWS
+AWS.config.update({
+  region: process.env.AWS_REGION || 'us-west-2',
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+});
 
 const app = express();
 const server = http.createServer(app);
 
 // Enable CORS for all routes
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['*'];
+  const origin = req.headers.origin;
+  
+  if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
   next();
