@@ -193,8 +193,21 @@ export default React.memo<GameBoardProps>(({
   // Card drop handling
   const [{ isOver }, dropRef] = useDrop<CardType, void, { isOver: boolean }>({    accept: 'CARD',
     drop: (item) => {
-      const isPlayerTurn = playerRole === 'player1' ? gameState.currentTurn === 'player' : gameState.currentTurn === 'opponent';
-      if (isPlayerTurn) onCardPlay(item);
+      const isPlayerTurn = playerRole === 'player1' ? 
+        (gameState.currentTurn === 'player' && gameState.gameStatus === 'playing') : 
+        (gameState.currentTurn === 'opponent' && gameState.gameStatus === 'playing');
+      if (isPlayerTurn) {
+        onCardPlay(item);
+        // Update game state with new turn
+        const newState: GameState = {
+          ...gameState,
+          currentTurn: playerRole === 'player1' ? 'opponent' : 'player'
+        };
+        setGameState(newState);
+        if (roomId) {
+          socket.emit('updateGameState', roomId, newState);
+        }
+      }
       return undefined;
     },
     collect: (monitor) => ({

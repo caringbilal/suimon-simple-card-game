@@ -118,11 +118,22 @@ io.on('connection', (socket) => {
       room.player2 = socket.id;
       console.log(`Player 2 (${socket.id}) successfully joined room ${roomId}`);
 
+      // Initialize game state with turn information
+      const initialGameState = {
+        currentTurn: 'player',  // Player 1 starts first
+        gameStatus: 'playing',
+        players: {
+          player: { energy: 700 },
+          opponent: { energy: 700 }
+        }
+      };
+      room.gameState = initialGameState;
+
       await gameOperations.createGame({ // DynamoDB update
         roomId,
         player1Id: room.player1,
         player2Id: room.player2,
-        gameState: room.gameState
+        gameState: initialGameState
       });
 
       io.to(roomId).emit('joinSuccess', roomId);  // Notify players
@@ -152,8 +163,32 @@ io.on('connection', (socket) => {
 
       await gameOperations.updateGame(roomId, newGameState);
 
-      io.to(roomId).emit('gameStateUpdate', newGameState);  // Broadcast to all players
-      console.log(`Game state updated for room ${roomId}`);
+      // Validate and ensure proper turn switching
+      if (newGameState.currentTurn === 'player' || newGameState.currentTurn === 'opponent') {
+        // Update game status to ensure it's playable
+        newGameState.gameStatus = 'playing';
+        
+        // Determine if the current socket is the active player
+        const isPlayer1 = socket.id === gameStates[roomId].player1;
+        const isPlayer2 = socket.id === gameStates[roomId].player2;
+        const isValidTurn = (isPlayer1 && newGameState.currentTurn === 'player') || (isPlayer2 && newGameState.currentTurn === 'opponent');
+        
+        if (!isValidTurn) {
+          socket.emit('error', 'Not your turn');
+          return;
+        }
+        
+        // Switch turns after valid move
+        newGameState.currentTurn = newGameState.currentTurn === 'player' ? 'opponent' : 'player';
+        
+        // Broadcast updated state to all players
+        io.to(roomId).emit('gameStateUpdate', newGameState);
+        console.log(`Game state updated for room ${roomId}, current turn: ${newGameState.currentTurn}`);
+        console.log(`Turn switched from ${socket.id} to ${newGameState.currentTurn === 'player' ? gameStates[roomId].player1 : gameStates[roomId].player2}`);
+      } else {
+        console.error(`Invalid turn state received: ${newGameState.currentTurn}`);
+        socket.emit('error', 'Invalid game state update');
+      }
 
       // Check for game end condition
       if (newGameState.gameStatus === 'finished') {
