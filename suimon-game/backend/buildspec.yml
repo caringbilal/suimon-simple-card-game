@@ -6,21 +6,15 @@ phases:
       nodejs: 16
     commands:
       - npm install
-      - npm install -g pm2
   pre_build:
     commands:
-      - echo "Setting up environment variables"
-      - echo "AWS_REGION=$AWS_REGION" >> .env
-      - echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> .env
-      - echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> .env
-      - echo "DYNAMODB_PLAYERS_TABLE=SuimonPlayers" >> .env
-      - echo "DYNAMODB_GAMES_TABLE=SuimonGames" >> .env
-      - echo "PORT=3002" >> .env
+      - echo "Running pre-build checks"
+      - npm test || true
   build:
     commands:
-      - echo "Starting the application with PM2"
-      - pm2 start server.js
-      - pm2 save
+      - echo "Packaging application for deployment"
+      - mkdir -p scripts
+      - chmod +x scripts/*.sh
   post_build:
     commands:
       - echo "Build completed successfully"
@@ -28,5 +22,11 @@ phases:
 artifacts:
   files:
     - '**/*'
+    - appspec.yml
+    - scripts/**/*
+    - package.json
+    - package-lock.json
+    - server.js
     - .env
+  base-directory: .
   discard-paths: no

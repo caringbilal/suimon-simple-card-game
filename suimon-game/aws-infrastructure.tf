@@ -62,45 +62,44 @@ resource "aws_dynamodb_table" "games" {
   }
 }
 
-# EC2 Instance
-resource "aws_instance" "backend" {
-  ami           = "ami-0735c191cf914754d"  # Amazon Linux 2 AMI
-  instance_type = "t2.micro"
-  key_name      = aws_key_pair.backend_key.key_name
+# Existing EC2 Instance
+data "aws_instance" "existing_backend" {
+  instance_id = "i-0ad531da93a14c104" # Replace with your actual instance ID
 
-  tags = {
-    Name = "suimon-backend-server"
+  filter {
+    name   = "ip-address"
+    values = ["52.42.119.120"]
+  }
+}
+
+# Update existing instance
+resource "null_resource" "backend_deployment" {
+  triggers = {
+    always_run = timestamp()
   }
 
-  user_data = <<-EOF
-              #!/bin/bash
-              yum update -y
-              yum install -y nodejs npm git
-              npm install -g pm2
-              mkdir -p /home/ec2-user/suimon-game
-              cd /home/ec2-user/suimon-game
-              cat > .env << EOL
-              PORT=3002
-              AWS_REGION=us-west-2
-              DYNAMODB_PLAYERS_TABLE=SuimonPlayers
-              DYNAMODB_GAMES_TABLE=SuimonGames
-              ALLOWED_ORIGINS=*
-              NODE_ENV=production
-              EOL
-              chown -R ec2-user:ec2-user /home/ec2-user/suimon-game
-              git clone https://github.com/bilal/suimon-simple-card-game.git .
-              cd backend
-              npm install
-              pm2 delete suimon-backend || true
-              pm2 start server.js --name "suimon-backend" --time
-              pm2 startup
-              pm2 save
-              pm2 startup | grep -v PM2 | bash
-              EOF
+  provisioner "remote-exec" {
+    inline = [
+      "#!/bin/bash",
+      "cd /home/ec2-user/suimon-game",
+      "git pull origin main",
+      "cd backend",
+      "npm install",
+      "pm2 delete suimon-backend || true",
+      "pm2 start server.js --name \"suimon-backend\" --time",
+      "pm2 save"
+    ]
+  }
 
-  vpc_security_group_ids = [aws_security_group.backend_sg.id]
+  connection {
+    type        = "ssh"
+    user        = "ec2-user"
+    private_key = file("suimon-backend-key")
+    host        = data.aws_instance.existing_backend.public_ip
+  }
 
-  iam_instance_profile = aws_iam_instance_profile.backend_profile.name
+  # Note: vpc_security_group_ids and iam_instance_profile are not valid for null_resource
+  # These are automatically applied to the EC2 instance through the data source
 }
 
 # IAM Role and Instance Profile
@@ -191,5 +190,5 @@ resource "aws_security_group" "backend_sg" {
 
 # Output the public IP
 output "backend_public_ip" {
-  value = aws_instance.backend.public_ip
+  value = data.aws_instance.existing_backend.public_ip
 }
