@@ -4,11 +4,11 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 
 // Import DynamoDB operations
-const { playerOperations, gameOperations } = require('./database/dynamodb');
+const { playerOperations, gameOperations } = require('../database/dynamodb');
 
 // Define Constants from Environment
 const PORT = process.env.PORT || 3002;
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || "https://d2m7rldqkz1v8b.cloudfront.net/"; // Set a default
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || "https://d2m7rldqkz1v8b.cloudfront.net,http://localhost:3005,http://52.42.119.120:3002"; // Set a default
 
 // Validate CORS
 const allowedOrigins = ALLOWED_ORIGINS.split(',').map(origin => origin.trim());

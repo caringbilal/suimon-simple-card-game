@@ -15,9 +15,9 @@ import { useAuth } from './context/AuthContext';
 import LogoutButton from './components/LogoutButton';
 
 // Define the server URL for AWS deployment
-const SERVER_URL = process.env.REACT_APP_API_URL || 'http://34.209.16.106:3002'; // AWS EC2 instance URL
+const SERVER_URL = process.env.REACT_APP_API_URL || 'http://52.42.119.120:3002'; // AWS EC2 instance URL
 const socket: Socket = io(SERVER_URL, {
-  transports: ['websocket'],
+  transports: ['websocket', 'polling'],
   reconnection: true,
   reconnectionAttempts: Infinity,
   reconnectionDelay: 1000,
