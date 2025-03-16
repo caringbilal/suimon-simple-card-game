@@ -1,0 +1,153 @@
+# This workflow will build and push a new container image to Amazon ECR,
+# and then will deploy a new task definition to Amazon ECS, when there is a push to the "main" branch.
+#
+# To use this workflow, you will need to complete the following set-up steps:
+#
+# 1. Create an ECR repository to store your images.
+#    For example: `aws ecr create-repository --repository-name my-ecr-repo --region us-east-2`.
+#    Replace the value of the `ECR_REPOSITORY` environment variable in the workflow below with your repository's name.
+#    Replace the value of the `AWS_REGION` environment variable in the workflow below with your repository's region.
+#
+# 2. Create an ECS task definition, an ECS cluster, and an ECS service.
+#    For example, follow the Getting Started guide on the ECS console:
+#      https://us-east-2.console.aws.amazon.com/ecs/home?region=us-east-2#/firstRun
+#    Replace the value of the `ECS_SERVICE` environment variable in the workflow below with the name you set for the Amazon ECS service.
+#    Replace the value of the `ECS_CLUSTER` environment variable in the workflow below with the name you set for the cluster.
+#
+# 3. Store your ECS task definition as a JSON file in your repository.
+#    The format should follow the output of `aws ecs register-task-definition --generate-cli-skeleton`.
+#    Replace the value of the `ECS_TASK_DEFINITION` environment variable in the workflow below with the path to the JSON file.
+#    Replace the value of the `CONTAINER_NAME` environment variable in the workflow below with the name of the container
+#    in the `containerDefinitions` section of the task definition.
+#
+# 4. Store an IAM user access key in GitHub Actions secrets named `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
+#    See the documentation for each action used below for the recommended IAM policies for this IAM user,
+#    and best practices on handling the access key credentials.
+
+name: Deploy Suimon Game Backend and Frontend
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  AWS_REGION: us-west-2                   # Set to your AWS region (us-west-2 for Oregon)
+  S3_BUCKET: suimon-frontend-bucket       # Set to your S3 bucket name for the frontend
+  CLOUDFRONT_DISTRIBUTION_ID: YOUR_CLOUDFRONT_DISTRIBUTION_ID  # Replace with your CloudFront distribution ID
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-backend:
+    name: Deploy Backend to EC2
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    # Step 1: Checkout the code
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    # Step 2: Set up Node.js
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+
+    # Step 3: Install backend dependencies
+    - name: Install backend dependencies
+      run: |
+        cd suimon-game/backend
+        npm install
+
+    # Step 4: Run tests (optional)
+    - name: Run tests
+      run: |
+        cd suimon-game/backend
+        npm test || true
+
+    # Step 5: Package the application
+    - name: Package application
+      run: |
+        cd suimon-game/backend
+        mkdir -p scripts
+        chmod +x scripts/*.sh
+
+    # Step 6: Copy files to EC2
+    - name: Copy files to EC2
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: 52.42.119.120
+        username: ec2-user
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: "suimon-game/backend/*"
+        target: "/home/ec2-user/suimon-game/backend"
+
+    # Step 7: Run deployment scripts on EC2
+    - name: Run deployment scripts
+      uses: appleboy/ssh-action@v0.1.10
+      with:
+        host: 52.42.119.120
+        username: ec2-user
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          cd /home/ec2-user/suimon-game/backend
+          if [ -f scripts/stop_application.sh ]; then
+            bash scripts/stop_application.sh
+          fi
+          if [ -f scripts/before_install.sh ]; then
+            bash scripts/before_install.sh
+          fi
+          if [ -f scripts/after_install.sh ]; then
+            bash scripts/after_install.sh
+          fi
+          if [ -f scripts/start_application.sh ]; then
+            bash scripts/start_application.sh
+          fi
+
+  deploy-frontend:
+    name: Deploy Frontend to S3 and CloudFront
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    # Step 1: Checkout the code
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    # Step 2: Set up Node.js
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+
+    # Step 3: Install frontend dependencies
+    - name: Install frontend dependencies
+      run: |
+        cd suimon-game/frontend
+        npm install
+
+    # Step 4: Build the frontend
+    - name: Build frontend
+      run: |
+        cd suimon-game/frontend
+        npm run build
+
+    # Step 5: Configure AWS credentials
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    # Step 6: Deploy to S3
+    - name: Deploy to S3
+      run: |
+        aws s3 sync suimon-game/frontend/dist/ s3://$S3_BUCKET --delete
+
+    # Step 7: Invalidate CloudFront cache
+    - name: Invalidate CloudFront
+      run: |
+        aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_DISTRIBUTION_ID --paths "/*"
