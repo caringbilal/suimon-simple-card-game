@@ -32,7 +32,7 @@ on:
 
 env:
   AWS_REGION: us-west-2                   # Set to your AWS region (us-west-2 for Oregon)
-  S3_BUCKET: suimon-frontend-bucket       # Set to your S3 bucket name for the frontend
+  S3_BUCKET: suimon-game-frontend       # Set to your S3 bucket name for the frontend
   CLOUDFRONT_DISTRIBUTION_ID: E2JTNVOLX1NAL6  # Replace with your CloudFront distribution ID
 
 permissions:
